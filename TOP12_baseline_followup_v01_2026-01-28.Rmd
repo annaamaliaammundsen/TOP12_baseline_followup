@@ -1,0 +1,2548 @@
+---
+title: "Inter99_cohort_code1"
+author: "Afnan"
+date: "2025-06-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+install.packages("dplyr")
+install.packages("readxl")
+install.packages("tidyr")
+install.packages("moments")
+install.packages("ggpubr")
+install.packages("ggridges")
+install.packages("hrbrthemes")
+library(tibble)
+library(hrbrthemes)
+library(readxl)
+library(dplyr)
+library(readr)
+library(tidyr)
+library(moments)
+library(ggpubr)
+library(ggplot2)
+```
+
+
+```{r}
+#LOAD DATA
+data_20_raw <- read_excel("L:/LovbeskyttetMapper01/Inter99 Steno Kohorte/2025_04_SF12/SF12_Inter99_20Y_followup.xlsx") 
+data_baseline_raw <- read_excel("L:/LovbeskyttetMapper01/Inter99 Steno Kohorte/2025_04_SF12/SF12_Inter99_BASELINE.xlsx") 
+```
+
+
+
+```{r}
+#CREATING A NEW DATA FRAME BUT ALSO IDENTIFYING WHO PARTICPATED AT FOLLOW-UP FROM THE BASELINE GROUP
+data_baseline_df <- data_baseline_raw %>%
+  mutate(participated_in_followup = ifelse(deltnr %in% data_20_raw$deltnr, 1, 0))
+```
+
+
+```{r}
+#Population A: Baseline only, did NOT participate in follow-up
+population_A_df <- data_baseline_df %>%
+  filter(participated_in_followup == 0)
+
+# Population B: Participated in follow-up
+population_B_baseline_df <- data_baseline_df %>%
+  filter(participated_in_followup == 1)
+```
+
+
+
+```{r}
+#MERGED BASELINE AND FOLLOW-UP DATA FOR POPULATION B
+population_B_merged_df <- inner_join(
+  population_B_baseline_df %>% select(deltnr, SEX, everything()),
+  data_20_raw %>% select(deltnr, SEX20, everything()),
+  by = "deltnr",
+  suffix = c("_baseline", "_followup")
+)
+
+
+```
+
+
+```{r}
+#IF YOU WANT TO COMBINE THE TWO GROUPS TO GET FULL BASELINE GROUP INFORMATION YOU CAN USE THIS
+baseline_all_df <- bind_rows(population_A_df, population_B_baseline_df)
+```
+
+
+
+POPULATION A: RENAMING ALL VARIABLES 
+```{r}
+population_A_df <- population_A_df %>%
+  rename(
+    height_baseline = HOEJDE0, 
+    weight_baseline = VAEGT0, 
+    waist_baseline = LIVVID0,
+    hip_baseline = HOFTE0, 
+    age_baseline = ALDER_0,
+    bmi_baseline =  BMI0,
+    glucose_baseline = GLUC0000,
+    hba1c_baseline = HBA1C0,
+    cholesterol_baseline = CHOL0,
+    hdl_baseline = HDLC0,
+    vldl_baseline = VLDL0, 
+    ldl_baseline = LDL0,
+    triglyceride_baseline = TRIG0,
+    alcohol_baseline = GENSTAN0,
+    srh_baseline = SVH12SF0,
+    physical_activity_baseline = FA_FRIT0
+    
+  )
+```
+
+
+
+POPULATION B: RENAMING ALL VARIABLES
+```{r}
+population_B_merged_df <- population_B_merged_df %>%
+  rename(
+    height_baseline = HOEJDE0,
+    height_followup = HOEJDE20,
+    weight_baseline = VAEGT0,
+    weight_followup = VAEGT20,
+    waist_baseline = LIVVID0,
+    waist_followup = LIVVID20,
+    hip_baseline = HOFTE0, 
+    hip_followup = HOFTE20, 
+    age_baseline = ALDER_0,
+    age_followup = ALDER_20,
+    bmi_baseline =  BMI0,
+    bmi_followup = BMI20,
+    glucose_baseline = GLUC0000,
+    glucose_followup = GLU20,
+    hba1c_baseline = HBA1C0,
+    hba1c_followup = HBA1C_DCCT20,
+    cholesterol_baseline = CHOL0,
+    cholesterol_followup = CHOL20, 
+    hdl_baseline = HDLC0,
+    hdl_followup = HDL20, 
+    vldl_baseline = VLDL0, 
+    vldl_followup = VLDL20,
+    ldl_baseline = LDL0,
+    ldl_followup = LDL20,
+    triglyceride_baseline = TRIG0,
+    triglyceride_followup = TRIG20,
+    alcohol_baseline = GENSTAN0,
+    alcohol_followup = GENSTAN20,
+    srh_baseline = SVH12SF0,
+    srh_followup = SVH12SF20,
+    physical_activity_baseline = FA_FRIT0,
+    physical_activity_followup = FA_FRIT20
+    
+  )
+```
+
+
+MEAN SYSTOLIC AND DIASTOLIC BLOOD PRESSURE 
+```{r}
+#MEAN BLOOD PRESSURE FOR POPULATION A
+population_A_df <- population_A_df %>%
+  mutate(
+    btsys_baseline = case_when(
+      !is.na(BTSYS10) & !is.na(BTSYS20) ~ rowMeans(cbind(BTSYS10, BTSYS20), na.rm = FALSE),
+      !is.na(BTSYS10) ~ BTSYS10,
+      !is.na(BTSYS20) ~ BTSYS20,
+      TRUE ~ NA_real_
+    ),
+    btdia_baseline = case_when(
+      !is.na(BTDIA10) & !is.na(BTDIA20) ~ rowMeans(cbind(BTDIA10, BTDIA20), na.rm = FALSE),
+      !is.na(BTDIA10) ~ BTDIA10,
+      !is.na(BTDIA20) ~ BTDIA20,
+      TRUE ~ NA_real_
+    )
+  )
+
+#MEAN BLOOD PRESSURE FOR POPULATION B 
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(
+    btsys_baseline = case_when(
+      !is.na(BTSYS10) & !is.na(BTSYS20) ~ rowMeans(cbind(BTSYS10, BTSYS20), na.rm = FALSE),
+      !is.na(BTSYS10) ~ BTSYS10,
+      !is.na(BTSYS20) ~ BTSYS20,
+      TRUE ~ NA_real_
+    ),
+    btdia_baseline = case_when(
+      !is.na(BTDIA10) & !is.na(BTDIA20) ~ rowMeans(cbind(BTDIA10, BTDIA20), na.rm = FALSE),
+      !is.na(BTDIA10) ~ BTDIA10,
+      !is.na(BTDIA20) ~ BTDIA20,
+      TRUE ~ NA_real_
+    ),
+    
+    btsys_followup = case_when(
+      !is.na(BTSYS220) & !is.na(BTSYS320) ~ rowMeans(cbind(BTSYS220, BTSYS320), na.rm = FALSE),
+      !is.na(BTSYS120) & !is.na(BTSYS220) ~ rowMeans(cbind(BTSYS120, BTSYS220), na.rm = FALSE),
+      !is.na(BTSYS120) & is.na(BTSYS220) & is.na(BTSYS320) ~ BTSYS120,
+      TRUE ~ NA_real_
+    ),
+    btdia_followup = case_when(
+      !is.na(BTDIA220) & !is.na(BTDIA320) ~ rowMeans(cbind(BTDIA220, BTDIA320), na.rm = FALSE),
+      !is.na(BTDIA120) & !is.na(BTDIA220) ~ rowMeans(cbind(BTDIA120, BTDIA220), na.rm = FALSE),
+      !is.na(BTDIA120) & is.na(BTDIA220) & is.na(BTDIA320) ~ BTDIA120,
+      TRUE ~ NA_real_
+    )
+  )
+```
+
+
+HYPERTENSION
+```{r}
+# Define hypertension at baseline for Population A
+population_A_df <- population_A_df %>%
+  mutate(hypertension = if_else(
+    btsys_baseline >= 140 | 
+    btdia_baseline >= 90 | 
+    HOEJTBT0== 1, 
+    1, 0
+  ))
+
+# Define hypertension at baseline for Population B
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(
+    hypertension_baseline = if_else(
+      btsys_baseline >= 140 | 
+      btdia_baseline >= 90 | 
+      HOEJTBT0 == 1, 
+      1, 0
+    ),
+    
+# Define hypertension at follow-up for Population B
+    hypertension_followup = if_else(
+      btsys_followup >= 140 | 
+      btdia_followup >= 90 | 
+      HOEJTBTX20 == 1, 
+      1, 0
+    )
+  )
+
+#CONVERT TO FACTORS TO BE YES/NO INSTEAD OF NUMBERS
+population_A_df$hypertension <- factor(population_A_df$hypertension, labels = c("No", "Yes"))
+
+population_B_merged_df$hypertension_baseline <- factor(population_B_merged_df$hypertension_baseline, labels = c("No", "Yes"))
+population_B_merged_df$hypertension_followup <- factor(population_B_merged_df$hypertension_followup, labels = c("No", "Yes"))
+
+
+#PRINT RESULTS
+# Function to count and percent
+summarise_hypertension <- function(data, var) {
+  data %>%
+    filter(!is.na(.data[[var]])) %>%
+    count(hypertension = .data[[var]]) %>%
+    mutate(percent = round(100 * n / sum(n), 1))
+}
+
+# Run for each group
+summarise_hypertension(population_A_df, "hypertension")
+summarise_hypertension(population_B_merged_df, "hypertension_baseline")
+summarise_hypertension(population_B_merged_df, "hypertension_followup")
+
+
+
+
+```
+
+DYSLIPIDEMIA
+```{r}
+#POPULATION A 
+population_A_df <- population_A_df %>%
+  mutate(dyslipidemia = if_else(
+    triglyceride_baseline >= 2.0 |
+    ldl_baseline >= 3.0 |
+    cholesterol_baseline >= 5.0 |
+    KOLHOJT0 == 1,
+    1, 0
+  ))
+
+# Convert to factor with labels
+population_A_df$dyslipidemia <- factor(population_A_df$dyslipidemia, labels = c("No", "Yes"))
+
+
+#POPULATION B BASELINE 
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(
+    dyslipidemia_baseline = if_else(
+      triglyceride_baseline >= 2.0 |
+      ldl_baseline >= 3.0 |
+      cholesterol_baseline >= 5.0 |
+      KOLHOJT0 == 1,
+      1, 0
+    ),
+    
+#OPULATION B FOLLOW-UP
+    dyslipidemia_followup = if_else(
+      triglyceride_followup >= 2.0 |
+      ldl_followup >= 3.0 |
+      cholesterol_followup >= 5.0 |
+      KOLHOEJX20== 1,
+      1, 0
+    )
+  )
+
+# Convert to factor with labels
+population_B_merged_df$dyslipidemia_baseline <- factor(population_B_merged_df$dyslipidemia_baseline, labels = c("No", "Yes"))
+population_B_merged_df$dyslipidemia_followup <- factor(population_B_merged_df$dyslipidemia_followup, labels = c("No", "Yes"))
+
+
+#PRINT RESULTS
+# Count and percent function
+summarise_dyslipidemia <- function(data, var) {
+  data %>%
+    filter(!is.na(.data[[var]])) %>%
+    count(dyslipidemia = .data[[var]]) %>%
+    mutate(percent = round(100 * n / sum(n), 1))
+}
+
+# Run for each population
+summarise_dyslipidemia(population_A_df, "dyslipidemia")
+summarise_dyslipidemia(population_B_merged_df, "dyslipidemia_baseline")
+summarise_dyslipidemia(population_B_merged_df, "dyslipidemia_followup")
+
+
+```
+
+CENTRAL OBESITY: WAIST CIRCUMFERENCE
+```{r}
+#AS THE DEFINITIONS FOR CENTRAL OBESITY DIFFERS FROM MEN AND WOMAN, THEY WILL BE DIFFERENCIATED
+
+#POPULATION A
+population_A_df <- population_A_df %>%
+  mutate(central_obesity_category = case_when(
+    SEX == 1 & waist_baseline < 94 ~ "Normal",
+    SEX == 1 & waist_baseline >= 94 & waist_baseline < 102 ~ "Increased risk",
+    SEX == 1 & waist_baseline >= 102 ~ "Greatly increased risk",
+    SEX == 2 & waist_baseline < 80 ~ "Normal",
+    SEX == 2 & waist_baseline >= 80 & waist_baseline < 88 ~ "Increased risk",
+    SEX == 2 & waist_baseline >= 88 ~ "Greatly increased risk",
+    TRUE ~ NA_character_
+  ))
+
+#POPULATION B BASELINE 
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(
+    central_obesity_category_baseline = case_when(
+      SEX == 1 & waist_baseline < 94 ~ "Normal",
+      SEX == 1 & waist_baseline >= 94 & waist_baseline < 102 ~ "Increased risk",
+      SEX == 1 & waist_baseline >= 102 ~ "Greatly increased risk",
+      SEX == 2 & waist_baseline < 80 ~ "Normal",
+      SEX == 2 & waist_baseline >= 80 & waist_baseline < 88 ~ "Increased risk",
+      SEX == 2 & waist_baseline >= 88 ~ "Greatly increased risk",
+      TRUE ~ NA_character_
+    ),
+    
+#POPULATION B FOLLOW-UP
+    central_obesity_category_followup = case_when(
+      SEX20 == 1 & waist_followup < 94 ~ "Normal",
+      SEX20 == 1 & waist_followup >= 94 & waist_followup < 102 ~ "Increased risk",
+      SEX20 == 1 & waist_followup >= 102 ~ "Greatly increased risk",
+      SEX20 == 2 & waist_followup < 80 ~ "Normal",
+      SEX20 == 2 & waist_followup >= 80 & waist_followup < 88 ~ "Increased risk",
+      SEX20 == 2 & waist_followup >= 88 ~ "Greatly increased risk",
+      TRUE ~ NA_character_
+    )
+  )
+
+#PRINT RESULTS CATEGORIZED BY SEX
+# Define sex labels
+sex_labels <- c("Male", "Female")
+
+# Helper function for summarising each population
+summarize_obesity <- function(data, sex_var, obesity_var, pop_name) {
+  data %>%
+    mutate(
+      Sex = factor(.data[[sex_var]], levels = c(1, 2), labels = sex_labels),
+      Obesity_Category = .data[[obesity_var]]
+    ) %>%
+    filter(!is.na(Sex) & !is.na(Obesity_Category)) %>%
+    group_by(Population = pop_name, Sex) %>%
+    count(Obesity_Category) %>%
+    mutate(
+      percent = round(100 * n / sum(n), 1),
+      label = paste0(n, " (", percent, "%)")
+    ) %>%
+    select(Population, Sex, Obesity_Category, label) %>%
+    ungroup()
+}
+
+# Summarize all three populations
+summary_A <- summarize_obesity(population_A_df, "SEX", "central_obesity_category", "Population A")
+summary_B_base <- summarize_obesity(population_B_merged_df, "SEX", "central_obesity_category_baseline", "Population B Baseline")
+summary_B_follow <- summarize_obesity(population_B_merged_df, "SEX20", "central_obesity_category_followup", "Population B Follow-up")
+
+# Combine all
+combined_obesity_summary <- bind_rows(summary_A, summary_B_base, summary_B_follow)
+
+# Spread into wide format for cleaner view
+wide_obesity_summary <- combined_obesity_summary %>%
+  pivot_wider(
+    names_from = Obesity_Category,
+    values_from = label,
+    values_fill = "0 (0%)"
+  )
+
+# View the table
+print(wide_obesity_summary)
+
+
+#PRINT RESULTS FOR TOTAL 
+# Helper function without sex grouping (totals only)
+summarize_obesity_total <- function(data, obesity_var, pop_name) {
+  data %>%
+    mutate(
+      Obesity_Category = .data[[obesity_var]]
+    ) %>%
+    filter(!is.na(Obesity_Category)) %>%
+    group_by(Population = pop_name) %>%
+    count(Obesity_Category) %>%
+    mutate(
+      percent = round(100 * n / sum(n), 1),
+      label = paste0(n, " (", percent, "%)")
+    ) %>%
+    select(Population, Obesity_Category, label) %>%
+    ungroup()
+}
+
+# Summarize all three populations without sex
+summary_A_total <- summarize_obesity_total(population_A_df, "central_obesity_category", "Population A")
+summary_B_base_total <- summarize_obesity_total(population_B_merged_df, "central_obesity_category_baseline", "Population B Baseline")
+summary_B_follow_total <- summarize_obesity_total(population_B_merged_df, "central_obesity_category_followup", "Population B Follow-up")
+
+# Combine all
+combined_obesity_summary_total <- bind_rows(summary_A_total, summary_B_base_total, summary_B_follow_total)
+
+# Spread into wide format for cleaner view
+wide_obesity_summary_total <- combined_obesity_summary_total %>%
+  pivot_wider(
+    names_from = Obesity_Category,
+    values_from = label,
+    values_fill = "0 (0%)"
+  )
+
+print(wide_obesity_summary_total)
+
+
+```
+
+GLUCOSE INTOLERANCE
+```{r}
+# Example for population_A_df
+population_A_df <- population_A_df %>%
+  mutate(glucose_intolerance_category = case_when(
+    glucose_baseline >= 7.0 ~ "Diabetes",
+    glucose_baseline  >= 6.1 & glucose_baseline  < 7.0 ~ "Prediabetes",
+    hba1c_baseline >= 6.5 ~ "Diabetes",
+    hba1c_baseline >= 5.7 & hba1c_baseline < 6.5 ~ "Prediabetes",
+    SELVDM0 == 1 ~ "Diabetes",
+    TRUE ~ "Normal"
+  ))
+
+# Repeat for population B baseline
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(glucose_intolerance_baseline = case_when(
+    glucose_baseline >= 7.0 ~ "Diabetes",
+    glucose_baseline >= 6.1 & glucose_baseline  < 7.0 ~ "Prediabetes",
+    hba1c_baseline >= 6.5 ~ "Diabetes",
+    hba1c_baseline >= 5.7 & hba1c_baseline < 6.5 ~ "Prediabetes",
+    SELVDM0 == 1 ~ "Diabetes",
+    TRUE ~ "Normal"
+  ))
+
+# Repeat for population B follow-up
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(glucose_intolerance_followup = case_when(
+    glucose_followup >= 7.0 ~ "Diabetes",
+    glucose_followup >= 6.1 & glucose_followup < 7.0 ~ "Prediabetes",
+    hba1c_followup >= 6.5 ~ "Diabetes",
+    hba1c_followup >= 5.7 & hba1c_followup < 6.5 ~ "Prediabetes",
+    SELVDMX20 == 1 ~ "Diabetes",
+    TRUE ~ "Normal"
+  ))
+
+#PRINT RESULTS
+library(dplyr)
+library(tidyr)
+
+summarize_glucose_intolerance_total <- function(data, category_var, pop_name) {
+  data %>%
+    mutate(Glucose_Intolerance = .data[[category_var]]) %>%
+    filter(!is.na(Glucose_Intolerance)) %>%
+    count(Population = pop_name, Glucose_Intolerance) %>%
+    mutate(
+      percent = round(100 * n / sum(n), 1),
+      label = paste0(n, " (", percent, "%)")
+    ) %>%
+    select(Population, Glucose_Intolerance, label) %>%
+    ungroup()
+}
+
+summary_A_total <- summarize_glucose_intolerance_total(population_A_df, "glucose_intolerance_category", "Population A")
+summary_B_base_total <- summarize_glucose_intolerance_total(population_B_merged_df, "glucose_intolerance_baseline", "Population B Baseline")
+summary_B_follow_total <- summarize_glucose_intolerance_total(population_B_merged_df, "glucose_intolerance_followup", "Population B Follow-up")
+
+combined_total_summary <- bind_rows(summary_A_total, summary_B_base_total, summary_B_follow_total)
+
+# Set factor levels here before pivoting
+combined_total_summary$Glucose_Intolerance <- factor(combined_total_summary$Glucose_Intolerance, 
+                                                     levels = c("Normal", "Prediabetes", "Diabetes"))
+
+wide_total_summary <- combined_total_summary %>%
+  arrange(Glucose_Intolerance) %>%  # optional to enforce order
+  pivot_wider(
+    names_from = Glucose_Intolerance,
+    values_from = label,
+    values_fill = "0 (0%)"
+  )
+
+print(wide_total_summary)
+
+```
+
+
+
+SMOKING VARIABLE
+```{r}
+#SMOKING VARIABLE FOR POPULATION A
+population_A_df <- population_A_df %>%
+  mutate(smoking_baseline = case_when(
+    RYGERDU0 == 1 ~ 1,  # Current
+    RYGERDU0 == 2 ~ 2,  # Occasionally
+    RYGERDU0 == 4 ~ 3,  # Former
+    RYGERDU0 == 5 ~ 4,  # Never
+    TRUE ~ NA_real_
+  ))
+
+
+#SMOKING VARIABLE FOR POPULATION B AT BASELINE 
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(smoking_baseline = case_when(
+    RYGERDU0 == 1 ~ 1,  # Current
+    RYGERDU0 == 2 ~ 2,  # Occasionally
+    RYGERDU0 == 4 ~ 3,  # Former
+    RYGERDU0 == 5 ~ 4,  # Never
+    TRUE ~ NA_real_
+  ))
+
+#SMOKING VARIABLE FOR POPULATION B AT FOLLOW-UP
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(smoking_followup = case_when(
+    RYGERDUX20 == 1 ~ 1,              # Current
+    RYGERDUX20 %in% c(2, 3) ~ 2,      # Occasionally combined
+    RYGERDUX20 == 4 ~ 3,               # Former
+    RYGERDUX20 == 5 ~ 4,               # Never
+    TRUE ~ NA_real_
+  ))
+
+
+# Function to get counts and percentages table for a smoking variable
+smoking_summary <- function(data, var, var_label) {
+  data %>%
+    filter(!is.na({{ var }})) %>%                # Remove missing values
+    count({{ var }}) %>%                         # Count per category
+    mutate(percentage = paste0(round(100 * n / sum(n), 1), "%")) %>%  # Calculate %
+    rename(Category = {{ var }}, Count = n) %>%
+    select(Category, Count, Percentage = percentage)
+}
+
+# Example usage for population_A smoking_baseline_label
+smoking_summary(population_A_df, smoking_baseline, "Smoking Status at Baseline")
+
+# For population_B_merged baseline smoking
+smoking_summary(population_B_merged_df, smoking_baseline, "Smoking Status at Baseline")
+
+# For population_B_merged follow-up smoking
+smoking_summary(population_B_merged_df, smoking_followup, "Smoking Status at Follow-up")
+
+```
+
+
+ALCOHOL VARIABLE
+```{r}
+# For Population A
+population_A_df <- population_A_df %>%
+  mutate(alcohol_cat_populationA = case_when(
+    is.na(alcohol_baseline) ~ NA_character_,
+    alcohol_baseline == 0 ~ "Absent",
+    alcohol_baseline < 10 ~ "Within recommendation",
+    alcohol_baseline >= 10 ~ "Above recommendation"
+  ))
+
+# For Population B (baseline)
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(alcohol_cat_populationB = case_when(
+    is.na(alcohol_baseline) ~ NA_character_,
+    alcohol_baseline == 0 ~ "Absent",
+    alcohol_baseline < 10 ~ "Within recommendation",
+    alcohol_baseline >= 10 ~ "Above recommendation"
+  ))
+
+# For Population B (follow-up)
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(alcohol_cat_followup = case_when(
+    is.na(alcohol_followup) ~ NA_character_,
+    alcohol_followup == 0 ~ "Absent",
+    alcohol_followup <= 10 ~ "Within recommendation",
+    alcohol_followup > 10 ~ "Above recommendation"
+  ))
+
+# Helper function to summarize alcohol category
+summarize_alcohol_category <- function(data, varname, population_label) {
+  total_n <- sum(!is.na(data[[varname]]))
+  
+  data %>%
+    group_by(category = .data[[varname]]) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    mutate(
+      percent = round(100 * n / total_n, 1),
+      formatted = paste0(n, " (", percent, "%)"),
+      Population = population_label
+    ) %>%
+    select(Population, Category = category, formatted)
+}
+
+# Apply to each population
+summary_A <- summarize_alcohol_category(population_A_df, "alcohol_cat_populationA", "Population A (baseline)")
+summary_B_baseline <- summarize_alcohol_category(population_B_merged_df, "alcohol_cat_populationB", "Population B (baseline)")
+summary_B_followup <- summarize_alcohol_category(population_B_merged_df, "alcohol_cat_followup", "Population B (follow-up)")
+
+# Combine and reshape
+alcohol_summary_table <- bind_rows(summary_A, summary_B_baseline, summary_B_followup) %>%
+  tidyr::pivot_wider(names_from = Population, values_from = formatted)
+print(alcohol_summary_table)
+
+```
+
+
+
+
+EDUCATIONAL LEVEL
+```{r}
+#EDUCATIONAL LEVEL WILL BE GROUPED INTO LOW, MEDIUM OR HIGH. 
+  #LOW: IF SKOLE0 <= 10
+  #MEDIUM: IF SKOLE0 BETWEEN 11-14 OR UDDSPEC0, UDDKORT0, UDDEFG0
+  #HIGH: IF UDDTEOR0, UDDTEKN0, UDDLAEN0, UDDVIDE0, UDDHOEJ0
+
+#POPULATION A:
+population_A_df <- population_A_df %>%
+  mutate(edu_level = case_when(
+    UDDTEOR0 == 1 | UDDTEKN0 == 1 | UDDLAEN0 == 1 | UDDVIDE0 == 1 | UDDHOEJ0 == 1 ~ "High",
+    (SKOLE0 >= 11 & SKOLE0 <= 14) | UDDSPEC0 == 1 | UDDKORT0 == 1 | UDDEFG0 == 1 ~ "Medium",
+    SKOLE0 <= 10 ~ "Low",
+    TRUE ~ NA_character_
+  ))
+
+
+#POPULATION B BASELINE:
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(edu_level = case_when(
+    UDDTEOR0 == 1 | UDDTEKN0 == 1 | UDDLAEN0 == 1 | UDDVIDE0 == 1 | UDDHOEJ0 == 1 ~ "High",
+    (SKOLE0 >= 11 & SKOLE0 <= 14) | UDDSPEC0 == 1 | UDDKORT0 == 1 | UDDEFG0 == 1 ~ "Medium",
+    SKOLE0 <= 10 ~ "Low",
+    TRUE ~ NA_character_
+  ))
+
+
+#CREATE OVERVIEW OF HOW MANY IN EACH CATEGORY 
+count_edu_levels <- function(df, population_name) {
+  df %>%
+    group_by(edu_level, .drop = FALSE) %>%  # include NA
+    summarise(n = n(), .groups = "drop") %>%
+    mutate(percent = round(100 * n / sum(n), 1),
+           population = population_name)
+}
+popAedu_summary <- count_edu_levels(population_A_df, "Population A")
+popBedu_summary <- count_edu_levels(population_B_merged_df, "Population B Baseline")
+edu_summary <- bind_rows(popAedu_summary, popBedu_summary)
+print(edu_summary)
+```
+
+
+PHYSICAL ACTIVITY
+```{r}
+
+#PHYSICAL ACTIVITY FOR POPULATION A 
+population_A_df <- population_A_df %>%
+  mutate(physical_activity_populationA = case_when(
+    physical_activity_baseline == 1 ~ "Sedentary",
+    physical_activity_baseline == 2 ~ "Low activity",
+    physical_activity_baseline %in% c(3, 4) ~ "Medium/High activity",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(physical_activity_populationA = factor(physical_activity_populationA,
+                                        levels = c("Sedentary", "Low activity", "Medium/High activity"),
+                                        ordered = TRUE))
+
+#PHYSICAL ACTIVITY FOR POPULATION B BASELINE
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(physical_activity_baseline_populationB = case_when(
+    physical_activity_baseline == 1 ~ "Sedentary",
+    physical_activity_baseline == 2 ~ "Low activity",
+    physical_activity_baseline %in% c(3, 4) ~ "Medium/High activity",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(physical_activity_baseline_populationB= factor(physical_activity_baseline_populationB,
+                                                levels = c("Sedentary", "Low activity", "Medium/High activity"),
+                                                ordered = TRUE))
+
+#PHYSICIAL ACTIVITY FOR POPULATION B FOLLOW-UP 
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(physical_activity_followup_populationB = case_when(
+    physical_activity_followup == 1 ~ "Sedentary",
+    physical_activity_followup == 2 ~ "Low activity",
+    physical_activity_followup %in% c(3, 4) ~ "Medium/High activity",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(physical_activity_followup_populationB = factor(physical_activity_followup_populationB,
+                                                levels = c("Sedentary", "Low activity", "Medium/High activity"),
+                                                ordered = TRUE))
+
+
+# Function to summarize physical activity counts for a population & variable
+summarize_activity <- function(data, varname, population_label) {
+  data %>%
+    count(value = .data[[varname]], .drop = FALSE) %>%  # include NA if any
+    mutate(Population = population_label) %>%
+    rename(Activity_Level = value, Count = n) %>%
+    mutate(Percent = round(100 * Count / sum(Count), 1))
+}
+
+# Use the function for each dataset
+popA_activity_summary <- summarize_activity(population_A_df, "physical_activity_populationA", "Population A")
+popB_baseline_activity_summary <- summarize_activity(population_B_merged_df, "physical_activity_baseline_populationB", "Population B Baseline")
+popB_followup_activity_summary <- summarize_activity(population_B_merged_df, "physical_activity_followup_populationB", "Population B Follow-up")
+
+# Combine all summaries into one table
+activity_summary <- bind_rows(popA_activity_summary, popB_baseline_activity_summary, popB_followup_activity_summary)
+
+print(activity_summary)
+
+
+
+```
+
+
+
+
+SELF RATED HEALTH
+```{r}
+# Map numeric SRH to categorical labels
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(
+    srh_baseline_cat = case_when(
+      srh_baseline == 1 ~ "Excellent",
+      srh_baseline == 2 ~ "Very Good",
+      srh_baseline == 3 ~ "Good",
+      srh_baseline == 4 ~ "Fair",
+      srh_baseline == 5 ~ "Poor",
+      TRUE ~ NA_character_
+    ),
+    srh_followup_cat = case_when(
+      srh_followup == 1 ~ "Excellent",
+      srh_followup == 2 ~ "Very Good",
+      srh_followup == 3 ~ "Good",
+      srh_followup == 4 ~ "Fair",
+      srh_followup == 5 ~ "Poor",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  mutate(
+    srh_baseline_cat = factor(srh_baseline_cat, levels = c("Excellent", "Very Good", "Good", "Fair", "Poor"), ordered = TRUE),
+    srh_followup_cat = factor(srh_followup_cat, levels = c("Excellent", "Very Good", "Good", "Fair", "Poor"), ordered = TRUE)
+  )
+
+
+# Function to summarize counts for a population & variable
+summarize_srh <- function(data, varname, population_label) {
+  data %>%
+    filter(!is.na(.data[[varname]])) %>%
+    count(value = .data[[varname]]) %>%
+    mutate(Population = population_label,
+           SRH_Category = case_when(
+             value == 1 ~ "Excellent",
+             value == 2 ~ "Very Good",
+             value == 3 ~ "Good",
+             value == 4 ~ "Fair",
+             value == 5 ~ "Poor",
+             TRUE ~ as.character(value)
+           )) %>%
+    select(Population, SRH_Category, n)
+}
+
+# Apply function to each group
+summary_A <- summarize_srh(population_A_df, "srh_baseline", "Population A (baseline)")
+summary_B_baseline <- summarize_srh(population_B_merged_df, "srh_baseline", "Population B (baseline)")
+summary_B_followup <- summarize_srh(population_B_merged_df, "srh_followup", "Population B (follow-up)")
+
+# Combine all summaries
+srh_count_table <- bind_rows(summary_A, summary_B_baseline, summary_B_followup) %>%
+  pivot_wider(names_from = Population, values_from = n)
+
+print(srh_count_table)
+
+
+
+
+```
+
+
+
+Q-Q PLOT, DENSITY PLOT AND SKEWNESS TEST FOR POPULATION A
+```{r}
+#DEFINE VARIABLES 
+population_A_vars <- c("height_baseline", "weight_baseline", "waist_baseline", "hip_baseline", 
+                       "age_baseline", "btsys_baseline", "btdia_baseline", "bmi_baseline", "glucose_baseline", "hba1c_baseline", 
+                       "cholesterol_baseline", "hdl_baseline", "vldl_baseline", "ldl_baseline", 
+                       "triglyceride_baseline")
+
+# Loop through each variable
+for (var in population_A_vars) {
+  cat("Variable:", var, "\n")
+  
+#HISTIOGRAM
+print(
+    ggdensity(population_A_df, x = var, fill = "darkgreen", color = "white", alpha = 0.9, title = var) +
+      stat_overlay_normal_density(color = "red") +
+      theme_ipsum() +
+      labs(x = var, y = "Density") + 
+      xlim(0, NA)
+  )
+  
+#Q-Q PLOT
+  qqplot <- ggplot(population_A_df, aes(sample = .data[[var]])) +
+    stat_qq() + 
+    stat_qq_line() +
+    ggtitle(paste("Q-Q Plot for", var)) +
+    theme_minimal()
+  print(qqplot)
+  
+#SKEWNESS
+  sk <- skewness(population_A_df[[var]], na.rm = TRUE)
+  cat("Skewness:", round(sk, 2), "\n\n")
+}
+
+```
+
+
+
+Q-Q PLOT, DENSITY PLOT AND SKEWNESS TEST FOR POPULATION B BASELINE AND FOLLOW-UP 
+```{r}
+#DEFINE VARIABLES 
+population_B_vars <- c("height_baseline", "weight_baseline", "waist_baseline", "hip_baseline", 
+                       "age_baseline", "bmi_baseline", "glucose_baseline", "hba1c_baseline", 
+                       "cholesterol_baseline", "hdl_baseline", "vldl_baseline", "ldl_baseline", 
+                       "triglyceride_baseline", "btsys_baseline", "btdia_baseline",
+                       "height_followup", "weight_followup", "waist_followup", "hip_followup", 
+                       "age_followup", "bmi_followup", "glucose_followup", "hba1c_followup", 
+                       "cholesterol_followup", "hdl_followup", "vldl_followup", "ldl_followup", 
+                       "triglyceride_followup", "btsys_followup", "btdia_followup")
+
+for (var in population_B_vars) {
+  cat("Variable:", var, "\n")
+  
+#HISTIOGRAM
+ print(
+    ggdensity(population_B_merged_df, x = var, fill = "darkgreen", color = "white", alpha = 0.9, title = var) +
+      stat_overlay_normal_density(color = "red") +
+      theme_ipsum() +
+      labs(x = var, y = "Density") + 
+      xlim(0, NA)
+ )
+  
+#Q-Q PLOTS
+  qqplot <- ggplot(population_B_merged_df, aes(sample = .data[[var]])) +
+    stat_qq() + 
+    stat_qq_line() +
+    ggtitle(paste("Q-Q Plot for", var)) +
+    theme_minimal()
+  print(qqplot)
+  
+#SKEWNESS
+  sk <- skewness(population_B_merged_df[[var]], na.rm = TRUE)
+  cat("Skewness:", round(sk, 2), "\n\n")
+}
+ 
+```
+
+
+
+TABLE 1: anthropometric and biochemical characteristics of participants at baseline and 20-years follow up.
+```{r}
+library(dplyr)
+library(tibble)
+
+# 1. MAKE A FUNCTION FOR MEAN AND SD
+get_mean_sd <- function(data, var) {
+  mean_val <- mean(data[[var]], na.rm = TRUE)
+  sd_val <- sd(data[[var]], na.rm = TRUE)
+  sprintf("%.2f ± %.2f", mean_val, sd_val)
+}
+
+# 2. MAKE FUNCTION FOR MEDIAN AND IQR
+get_median_iqr <- function(data, var) {
+  median_val <- median(data[[var]], na.rm = TRUE)
+  iqr_val <- IQR(data[[var]], na.rm = TRUE)
+  sprintf("%.2f [%.2f]", median_val, iqr_val)
+}
+
+# 3. LIST OF VARIABLES THAT IS INCLUDED WITHOUT SUFFIX 
+variables <- c("age", "height", "weight", "waist", "hip", 
+               "bmi", "btsys", "btdia", "glucose", "hba1c", 
+               "cholesterol", "hdl", "vldl", "ldl", "triglyceride")
+
+# 4. NAME ALL VARIABLES THAT ARE NOT NORMALLY DISTRIBUTED 
+non_normal_vars <- c("age", "glucose", "hba1c", "vldl", "triglyceride")  
+
+# 5. WE MAKE AN EMPTY RESULT TABLE 
+result_table <- tibble(
+  Variable = variables,
+  `Population A` = NA_character_,
+  `Population B Baseline` = NA_character_,
+  `Population B Follow-up` = NA_character_
+)
+
+# 6. WE FILL OUT THE RESULT TABLE 
+for (i in seq_along(variables)) {
+  var <- variables[i]
+  var_base <- paste0(var, "_baseline")
+  var_followup <- paste0(var, "_followup")
+  
+  # Choose correct formatting function
+  formatter <- if (var %in% non_normal_vars) get_median_iqr else get_mean_sd
+  
+  result_table$`Population A`[i] <- formatter(population_A_df, var_base)
+  result_table$`Population B Baseline`[i] <- formatter(population_B_merged_df, var_base)
+  result_table$`Population B Follow-up`[i] <- formatter(population_B_merged_df, var_followup)
+}
+
+# 7. CALCULATE HOW MANY PERCENTAGE (%) OF MEN THERE IS IN OUR DATA 
+sex_percentage <- function(data, sex_var) {
+  data %>%
+    filter(!is.na(.data[[sex_var]])) %>%             
+    count(value = .data[[sex_var]]) %>%              
+    mutate(percentage = round(100 * n / sum(n), 1)) %>%
+    filter(value == 1) %>%                           
+    pull(percentage) %>%
+    paste0("%")
+}
+
+# 8. Create sex row
+sex_row <- tibble(
+  Variable = "Sex (male) (%)",
+  `Population A` = sex_percentage(population_A_df, "SEX"),
+  `Population B Baseline` = sex_percentage(population_B_merged_df, "SEX"),
+  `Population B Follow-up` = sex_percentage(population_B_merged_df, "SEX20")
+)
+
+
+# --- Function to get SRH % ---
+get_srh_percent <- function(data, srh_var) {
+  data %>%
+    filter(!is.na(.data[[srh_var]])) %>%
+    count(value = .data[[srh_var]]) %>%
+    mutate(
+      label = case_when(
+        value == 1 ~ "Excellent",
+        value == 2 ~ "Very Good",
+        value == 3 ~ "Good",
+        value == 4 ~ "Fair",
+        value == 5 ~ "Poor",
+        TRUE ~ as.character(value)
+      ),
+      percent = round(100 * n / sum(n), 1),
+      display = paste0(percent, "%")
+    ) %>%
+    select(label, display) %>%
+    deframe()
+}
+
+# --- Get SRH percentages ---
+srh_A <- get_srh_percent(population_A_df, "srh_baseline")
+srh_B_base <- get_srh_percent(population_B_merged_df, "srh_baseline")
+srh_B_follow <- get_srh_percent(population_B_merged_df, "srh_followup")
+
+# --- Build SRH rows with "Self-rated health" header and indented options ---
+srh_rows <- tibble(
+  Variable = c("Self-rated health", "  Excellent", "  Very Good", "  Good", "  Fair", "  Poor"),
+  `Population A` = c(NA, srh_A["Excellent"], srh_A["Very Good"], srh_A["Good"], srh_A["Fair"], srh_A["Poor"]),
+  `Population B Baseline` = c(NA, srh_B_base["Excellent"], srh_B_base["Very Good"], srh_B_base["Good"], srh_B_base["Fair"], srh_B_base["Poor"]),
+  `Population B Follow-up` = c(NA, srh_B_follow["Excellent"], srh_B_follow["Very Good"], srh_B_follow["Good"], srh_B_follow["Fair"], srh_B_follow["Poor"])
+)
+
+# --- Combine total N, sex, SRH rows, and existing variables table ---
+final_table <- bind_rows(
+  sex_row,
+  srh_rows,
+  result_table
+)
+
+# 10. RENAME THE VARIABLES 
+final_table$Variable <- dplyr::recode(final_table$Variable,
+  sex = "Sex (male) (%)",
+  age = "Age (years)",
+  height = "Height (cm)",
+  weight = "Weight (kg)",
+  waist = "Waist circumference (cm)",
+  hip = "Hip circumference (cm)",
+  bmi = "BMI (kg/m²)",
+  btsys = "Systolic Blood Pressure (mmHg)",
+  btdia = "Diastolic Blood Pressure (mmHg)",
+  glucose = "Glucose (mmol/L)",
+  hba1c = "HbA1c (%)",
+  cholesterol = "Total cholesterol (mmol/L)",
+  hdl = "HDL cholesterol (mmol/L)",
+  vldl = "VLDL cholesterol (mmol/L)",
+  ldl = "LDL cholesterol (mmol/L)",
+  triglyceride = "Triglycerides (mmol/L)"
+)
+
+# 11. HAVE TOTAL N IN THE HEAD ROW
+n_A <- nrow(population_A_df)
+n_B_base <- nrow(population_B_merged_df %>% filter(!is.na(srh_baseline)))
+n_B_base <- nrow(population_B_merged_df)
+n_B_follow <- nrow(population_B_merged_df)
+
+
+# 12. RENAME HEAD COLUMNS 
+final_table_1 <- final_table %>%
+  rename(
+    !!paste0("Population A (baseline, N = ", n_A, ")") := `Population A`,
+    !!paste0("Population B (baseline, N = ", n_B_base, ")") := `Population B Baseline`,
+    !!paste0("Population B (follow-up, N = ", n_B_follow, ")") := `Population B Follow-up`
+  )
+
+# MARK THE NS VARIABLES
+followup_col <- grep("Population B.*follow-up", colnames(final_table_1), value = TRUE)
+
+final_table_1[final_table_1$Variable == "Diastolic Blood Pressure (mmHg)", followup_col] <-
+  paste0(final_table_1[final_table_1$Variable == "Diastolic Blood Pressure (mmHg)", followup_col], "†")
+
+final_table_1[final_table_1$Variable == "Total cholesterol (mmol/L)", followup_col] <-
+  paste0(final_table_1[final_table_1$Variable == "Total cholesterol (mmol/L)", followup_col], "†")
+
+
+
+# 13. PRINT THE FINAL TABLE 
+print(final_table_1)
+
+
+```
+
+STATISTICAL TEST (T-TEST, MANN-WHITNEY-U TEST, PAIRED T-TEST, WILCOXON SIGNED TEST)
+```{r}
+# Define results storage
+test_results <- tibble(
+  Variable = variables,
+  `Population A vs B Baseline (p)` = NA_real_,
+  `Population B Baseline vs Follow-up (p)` = NA_real_
+)
+
+# Loop through variables
+for (i in seq_along(variables)) {
+  var <- variables[i]
+  var_base <- paste0(var, "_baseline")
+  var_follow <- paste0(var, "_followup")
+  
+# Extract values
+  population_A_values <- population_A_df[[var_base]]
+  population_B_baseline_values <- population_B_merged_df[[var_base]]
+  population_B_followup_values <- population_B_merged_df[[var_follow]]
+  
+## Population A vs B Baseline
+  if (var %in% non_normal_vars) {
+    
+# Mann–Whitney U test (Wilcoxon rank-sum)
+    p1 <- wilcox.test(population_A_values, population_B_baseline_values)$p.value
+  } else {
+    # Independent t-test
+    p1 <- t.test(population_A_values, population_B_baseline_values)$p.value
+  }
+  test_results$`Population A vs B Baseline (p)`[i] <- p1
+  
+## Population B Baseline vs Follow-up (paired)
+  paired_df <- data.frame(
+    baseline = population_B_baseline_values,
+    followup = population_B_followup_values
+  ) %>% na.omit()
+  
+  if (var %in% non_normal_vars) {
+
+# Wilcoxon signed-rank test
+    p2 <- wilcox.test(paired_df$baseline, paired_df$followup, paired = TRUE)$p.value
+  } else {
+# Paired t-test
+    p2 <- t.test(paired_df$baseline, paired_df$followup, paired = TRUE)$p.value
+  }
+  test_results$`Population B Baseline vs Follow-up (p)`[i] <- p2
+}
+
+# Optional: round p-values
+test_results <- test_results %>%
+  mutate(across(where(is.numeric), ~ round(., 4)))
+
+# View result
+print(test_results)
+
+```
+
+
+
+
+```{r}
+# Your format function for p-values (vectorized)
+format_pvalue <- function(p) {
+  ifelse(
+    is.na(p), "",
+    ifelse(
+      p < 0.001, "<0.001",
+      format(round(p, 3), nsmall = 3)
+    )
+  )
+}
+
+# Mapping from short variable names (test_results) to descriptive (result_table)
+name_map <- c(
+  "age" = "Age (years)",
+  "height" = "Height (cm)",
+  "weight" = "Weight (kg)",
+  "waist" = "Waist circumference (cm)",
+  "hip" = "Hip circumference (cm)",
+  "bmi" = "BMI (kg/m²)",
+  "btsys" = "Systolic Blood Pressure (mmHg)",
+  "btdia" = "Diastolic Blood Pressure (mmHg)",
+  "glucose" = "Glucose (mmol/L)",
+  "hba1c" = "HbA1c (%)",
+  "cholesterol" = "Total cholesterol (mmol/L)",
+  "hdl" = "HDL cholesterol (mmol/L)",
+  "vldl" = "VLDL cholesterol (mmol/L)",
+  "ldl" = "LDL cholesterol (mmol/L)",
+  "triglyceride" = "Triglycerides (mmol/L)"
+)
+
+# Rename the Variable column in test_results to descriptive names:
+test_results <- test_results %>%
+  mutate(Variable = name_map[Variable])
+
+
+# Format p-values in test_results
+test_results_formatted <- test_results %>%
+  mutate(across(where(is.numeric), format_pvalue))
+
+# Join p-values to your result_table by Variable
+final_table_1 <- final_table_1 %>%
+  left_join(test_results_formatted, by = "Variable")
+
+# Rename p-value columns to something nicer if you want
+final_table_1 <- final_table_1 %>%
+  rename(
+    `P-value: Population A vs B Baseline` = `Population A vs B Baseline (p)`,
+    `P-value: Population B Baseline vs Follow-up` = `Population B Baseline vs Follow-up (p)`
+  )
+
+# View the final combined table
+print(final_table_1)
+
+```
+
+
+
+TABLE 1 EXPORT TO WORD 
+```{r}
+install.packages("officer")
+install.packages("flextable")
+library(officer)
+library(flextable)
+
+# Create a Word document
+doc <- read_docx()
+
+# Add your table
+doc <- body_add_flextable(doc, flextable(final_table_1))
+
+# Save the Word document
+print(doc, target = "summary_table.docx")
+
+```
+
+
+
+
+TABLE 2: SELF-REPORTED DISEASES AT BASELINE AND FOLLOW-UP IN ALL POPULATIONS 
+```{r}
+#NAMING THE VARIABLES FOR SELF-REPORTED DISEASES
+
+population_A_df <- population_A_df %>%
+  rename(
+    self_diabtes_baseline = SELVDM0,
+    self_hypertension_baseline = HOEJTBT0,
+    self_hyperkol_baseline = KOLHOJT0,
+    self_MI_baseline = BLOPROP0,
+    self_stroke_baseline = BRNPROP0,
+    self_hemorrhage_baseline = BRNBLOD0,
+    self_otherheart_baseline = ANDHJER0,
+    self_asthma_baseline = ASTMA0
+  )
+    
+
+population_B_merged_df <- population_B_merged_df %>%
+  rename(
+    self_diabtes_baseline = SELVDM0,
+    self_diabtes_followup = SELVDMX20, 
+    self_hypertension_baseline = HOEJTBT0,
+    self_hypertension_followup = HOEJTBTX20,
+    self_hyperkol_baseline = KOLHOJT0,
+    self_hyperkol_followup = KOLHOEJX20,
+    self_MI_baseline = BLOPROP0,
+    self_MI_followup = BLOPROP20,
+    self_stroke_baseline = BRNPROP0,
+    self_stroke_followup = BLODPROPY20,
+    self_hemorrhage_baseline = BRNBLOD0,
+    self_otherheart_baseline = ANDHJER0,
+    self_otherheart_followup = ANDHJER20,
+    self_asthma_baseline = ASTMA0,
+    self_asthma_followup = ASTMA20
+  )
+  
+#BASELINE STROKE AND HEMORRHAGE WILL BE COMBINED INTO JUST STROKE, SO IT IS COMPATIBLE WITH FOLLOW-UP STROKE
+   population_A_df <- population_A_df %>%
+  mutate(self_stroke_baseline = case_when(
+    self_stroke_baseline == 1 | self_hemorrhage_baseline == 1 ~ 1,
+    is.na(self_stroke_baseline) & is.na(self_hemorrhage_baseline) ~ NA_real_,
+    TRUE ~ 0
+  ))
+
+  population_B_merged_df <- population_B_merged_df %>%
+  mutate(self_stroke_baseline = case_when(
+    self_stroke_baseline == 1 | self_hemorrhage_baseline == 1 ~ 1,
+    is.na(self_stroke_baseline) & is.na(self_hemorrhage_baseline) ~ NA_real_,
+    TRUE ~ 0
+  ))
+
+
+```
+
+
+```{r}
+library(stringr)
+
+# Define variables
+baseline_vars <- c(
+  "self_diabtes_baseline", "self_hypertension_baseline", "self_hyperkol_baseline",
+  "self_MI_baseline", "self_stroke_baseline", "self_otherheart_baseline", "self_asthma_baseline"
+)
+followup_vars <- c(
+  "self_diabtes_followup", "self_hypertension_followup", "self_hyperkol_followup",
+  "self_MI_followup", "self_stroke_followup", "self_otherheart_followup", "self_asthma_followup"
+)
+
+# Group sizes
+n_A <- nrow(population_A_df)
+n_B <- nrow(population_B_merged_df)
+
+# Helper function to format count and percentage
+format_count_pct <- function(count, total) {
+  pct <- round((count / total) * 100, 1)
+  paste0(count, " (", pct, "%)")
+}
+
+# Summarize Population A
+popA_summary <- population_A_df %>%
+  summarise(across(all_of(baseline_vars), ~ sum(. == 1, na.rm = TRUE))) %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "count_A") %>%
+  mutate(formatted_A = format_count_pct(count_A, n_A))
+
+# Summarize Population B (baseline)
+popB_baseline_summary <- population_B_merged_df %>%
+  summarise(across(all_of(baseline_vars), ~ sum(. == 1, na.rm = TRUE))) %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "count_B_baseline") %>%
+  mutate(formatted_B_baseline = format_count_pct(count_B_baseline, n_B))
+
+# Summarize Population B (follow-up)
+popB_followup_summary <- population_B_merged_df %>%
+  summarise(across(all_of(followup_vars), ~ sum(. == 1, na.rm = TRUE))) %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "count_B_followup") %>%
+  mutate(
+    Variable = str_replace(Variable, "_followup", "_baseline"),  # to align with baseline
+    formatted_B_followup = format_count_pct(count_B_followup, n_B)
+  )
+# Create a named vector: new_name = old_name without "self_" prefix
+disease_labels <- c(
+  "diabtes_baseline" = "Diabetes",
+  "hypertension_baseline" = "Hypertension",
+  "hyperkol_baseline" = "Hypercholesterolemia",
+  "MI_baseline" = "Myocardial infarction",
+  "stroke_baseline" = "Stroke",
+  "otherheart_baseline" = "Other heart disease",
+  "asthma_baseline" = "Asthma"
+)
+
+# Then apply it in the pipeline
+final_summary <- popA_summary %>%
+  full_join(popB_baseline_summary, by = "Variable") %>%
+  full_join(popB_followup_summary, by = "Variable") %>%
+  mutate(
+    disease_code = str_remove(Variable, "self_"),
+    Self_Reported_Disease = recode(disease_code, !!!disease_labels)
+  ) %>%
+  select(Self_Reported_Disease, formatted_A, formatted_B_baseline, formatted_B_followup) %>%
+  rename(
+    !!paste0("Population A (baseline, N = ", n_A, ")") := formatted_A,
+    !!paste0("Population B (baseline, N = ", n_B, ")") := formatted_B_baseline,
+    !!paste0("Population B (follow-up, N = ", n_B, ")") := formatted_B_followup
+  )
+
+
+
+```
+
+
+```{r}
+library(flextable)
+library(officer)
+# Create a flextable object from your summary
+ft <- flextable(final_summary)
+
+# Export to Word document
+doc <- read_docx() %>%
+  body_add_par("Summary of Self-Reported Diseases", style = "heading 1") %>%
+  body_add_flextable(ft)
+
+# Save the Word file
+print(doc, target = "self_reported_summary.docx")
+```
+
+
+
+
+
+TABLE 3: CARDIOMETABOLIC OUTCOMES OVERVIEW
+```{r}
+library(dplyr)
+library(tidyr)
+library(flextable)
+library(officer)
+
+# Function to summarize counts and percentages for categorical outcomes
+summarize_outcome <- function(data, category_var, pop_name) {
+  data %>%
+    filter(!is.na(.data[[category_var]])) %>%
+    count(Category = .data[[category_var]]) %>%
+    mutate(
+      percent = round(100 * n / sum(n), 1),
+      label = paste0(n, " (", percent, "%)"),
+      Population = pop_name
+    ) %>%
+    select(Category, label, Population)
+}
+
+# Function to create outcome tables with combined Variable column
+make_outcome_table <- function(outcome_name, data_list) {
+  combined <- bind_rows(data_list) %>%
+  pivot_wider(names_from = Population, values_from = label, values_fill = list(label = "0 (0%)")) %>%
+  arrange(Category)
+
+  
+  # Create Variable column: indent categories, outcome name on top
+  combined <- combined %>%
+    mutate(
+      Variable = paste0("   ", Category)
+    ) %>%
+    select(Variable, everything(), -Category)
+  
+  # Insert header row with outcome name, empty population columns
+  header_row <- tibble(
+    Variable = outcome_name,
+    !!!setNames(rep(NA_character_, ncol(combined) - 1), colnames(combined)[-1])
+  )
+  
+  combined <- bind_rows(header_row, combined)
+  
+  # Replace NAs with empty strings
+  combined[is.na(combined)] <- ""
+  
+  combined
+}
+
+# --- Summarize outcomes for each population ---
+
+ht_A <- summarize_outcome(population_A_df, "hypertension", "Population A")
+ht_B_base <- summarize_outcome(population_B_merged_df, "hypertension_baseline", "Population B Baseline")
+ht_B_follow <- summarize_outcome(population_B_merged_df, "hypertension_followup", "Population B Follow-up")
+
+dyslip_A <- summarize_outcome(population_A_df, "dyslipidemia", "Population A")
+dyslip_B_base <- summarize_outcome(population_B_merged_df, "dyslipidemia_baseline", "Population B Baseline")
+dyslip_B_follow <- summarize_outcome(population_B_merged_df, "dyslipidemia_followup", "Population B Follow-up")
+
+co_A <- summarize_outcome(population_A_df, "central_obesity_category", "Population A")
+co_B_base <- summarize_outcome(population_B_merged_df, "central_obesity_category_baseline", "Population B Baseline")
+co_B_follow <- summarize_outcome(population_B_merged_df, "central_obesity_category_followup", "Population B Follow-up")
+
+glucose_levels <- c("Normal", "Prediabetes", "Diabetes")
+glucose_A <- summarize_outcome(population_A_df, "glucose_intolerance_category", "Population A") %>%
+  mutate(Category = factor(Category, levels = glucose_levels))
+glucose_B_base <- summarize_outcome(population_B_merged_df, "glucose_intolerance_baseline", "Population B Baseline") %>%
+  mutate(Category = factor(Category, levels = glucose_levels))
+glucose_B_follow <- summarize_outcome(population_B_merged_df, "glucose_intolerance_followup", "Population B Follow-up") %>%
+  mutate(Category = factor(Category, levels = glucose_levels))
+
+
+# --- Create tables for each outcome ---
+ht_table <- make_outcome_table("Hypertension", list(ht_A, ht_B_base, ht_B_follow))
+dyslip_table <- make_outcome_table("Dyslipidemia", list(dyslip_A, dyslip_B_base, dyslip_B_follow))
+co_table <- make_outcome_table("Central Obesity", list(co_A, co_B_base, co_B_follow))
+glucose_table <- make_outcome_table("Glucose Intolerance", list(glucose_A, glucose_B_base, glucose_B_follow))
+
+# --- Combine all outcome tables ---
+final_table <- bind_rows(ht_table, dyslip_table, co_table, glucose_table)
+
+final_table <- final_table %>%
+  rename(
+    !!paste0("Population A (baseline, N = ", n_A, ")") := `Population A`,
+    !!paste0("Population B (baseline, N = ", n_B_base, ")") := `Population B Baseline`,
+    !!paste0("Population B (follow-up, N = ", n_B_follow, ")") := `Population B Follow-up`
+  )
+
+# --- Format flextable: bold outcome headers (rows without counts) ---
+header_rows <- which(final_table %>% select(-Variable) %>% apply(1, function(x) all(x == "")))
+
+ft <- flextable(final_table) %>%
+  bold(i = header_rows, j = 1, part = "body") %>%  # Bold outcome header in Variable column
+  fontsize(size = 12, i = header_rows, part = "body") %>%
+  fontsize(size = 11, part = "body") %>%
+  autofit()
+
+# --- Export to Word ---
+doc <- read_docx() %>%
+  body_add_par("Summary of Cardiometabolic Outcomes", style = "heading 1") %>%
+  body_add_flextable(ft)
+
+print(doc, target = "cardiometabolic_outcomes.docx")
+
+
+```
+
+
+Table 4: self-rated health, and lifestyle factors 
+```{r}
+# Your summarize_outcome and make_outcome_table functions (unchanged)
+
+summarize_outcome <- function(data, category_var, pop_name) {
+  data %>%
+    filter(!is.na(.data[[category_var]])) %>%
+    count(Category = .data[[category_var]]) %>%
+    mutate(
+      percent = round(100 * n / sum(n), 1),
+      label = paste0(n, " (", percent, "%)"),
+      Population = pop_name
+    ) %>%
+    dplyr::select(Category, label, Population)
+}
+
+make_outcome_table <- function(outcome_name, data_list) {
+  combined <- bind_rows(data_list) %>%
+    pivot_wider(names_from = Population, values_from = label, values_fill = list(label = "0 (0%)")) %>%
+    arrange(Category) %>%
+    mutate(Variable = paste0("   ", Category)) %>%
+    dplyr::select(Variable, everything(), -Category)
+  
+  header_row <- tibble(
+    Variable = outcome_name,
+    !!!setNames(rep(NA_character_, ncol(combined) - 1), colnames(combined)[-1])
+  )
+  
+  combined <- bind_rows(header_row, combined)
+  combined[is.na(combined)] <- ""
+  
+  combined
+}
+
+# --- Summarize smoking, alcohol, education, physical activity for each population ---
+
+smoking_A <- summarize_outcome(population_A_df, "smoking_baseline", "Population A")
+smoking_B_base <- summarize_outcome(population_B_merged_df, "smoking_baseline", "Population B Baseline")
+smoking_B_follow <- summarize_outcome(population_B_merged_df, "smoking_followup", "Population B Follow-up")
+
+alcohol_A <- summarize_outcome(population_A_df, "alcohol_cat_populationA", "Population A")
+alcohol_B_base <- summarize_outcome(population_B_merged_df, "alcohol_cat_populationB", "Population B Baseline")
+alcohol_B_follow <- summarize_outcome(population_B_merged_df, "alcohol_cat_followup", "Population B Follow-up")
+
+education_A <- summarize_outcome(population_A_df, "edu_level", "Population A")
+education_B_base <- summarize_outcome(population_B_merged_df, "edu_level", "Population B Baseline")
+education_B_follow <- summarize_outcome(population_B_merged_df, "edu_level", "Population B Follow-up")
+
+physical_activity_A <- summarize_outcome(population_A_df, "physical_activity_populationA", "Population A")
+physical_activity_B_base <- summarize_outcome(population_B_merged_df, "physical_activity_baseline_populationB", "Population B Baseline")
+physical_activity_B_follow <- summarize_outcome(population_B_merged_df, "physical_activity_followup_populationB", "Population B Follow-up")
+
+# --- Create tables for each lifestyle factor ---
+
+smoking_table <- make_outcome_table("Smoking", list(smoking_A, smoking_B_base, smoking_B_follow))
+alcohol_table <- make_outcome_table("Alcohol Consumption", list(alcohol_A, alcohol_B_base, alcohol_B_follow))
+education_table <- make_outcome_table("Education Level", list(education_A, education_B_base, education_B_follow))
+physical_activity_table <- make_outcome_table("Physical Activity", list(physical_activity_A, physical_activity_B_base, physical_activity_B_follow ))
+
+# --- Combine all tables into one final table ---
+final_table <- bind_rows(smoking_table, alcohol_table, education_table, physical_activity_table)
+
+# --- Rename columns with population sizes if you have them ---
+final_table <- final_table %>%
+  rename(
+    !!paste0("Population A (baseline, N = ", n_A, ")") := `Population A`,
+    !!paste0("Population B (baseline, N = ", n_B_base, ")") := `Population B Baseline`,
+    !!paste0("Population B (follow-up, N = ", n_B_follow, ")") := `Population B Follow-up`
+  )
+
+# --- Format with flextable and export to Word ---
+header_rows <- which(final_table %>% dplyr::select(-Variable) %>% 
+                       apply(1, function(x) all(x == "")))
+
+ft <- flextable(final_table) %>%
+  bold(i = header_rows, j = 1, part = "body") %>%
+  fontsize(size = 12, i = header_rows, part = "body") %>%
+  fontsize(size = 11, part = "body") %>%
+  autofit()
+
+doc <- read_docx() %>%
+  body_add_par("Summary of Lifestyle Factors", style = "heading 1") %>%
+  body_add_flextable(ft)
+
+print(doc, target = "lifestyle_factors_summary.docx")
+```
+
+
+
+TRAJECTORY ANALYSIS
+```{r} 
+# FIRST CREATE NEW VARIABLES THAT CATEGORIZE EACH PARTICIPANT AS HAVING EITHER IMPROVED, UNCHANGED OR DECREASED SRH FROM BASELINE TO FOLLOW-UP.
+#Consistent high = excellent + very good
+#Consistent moderate = good
+#Consistent low = fair + poor
+
+# 1. Define the ordered levels from best to worst
+srh_levels <- c("Excellent", "Very Good", "Good", "Fair", "Poor")
+
+# 2. Recode numeric SRH to category labels (based on your numeric coding: 1=Excellent ... 5=Poor)
+population_B_merged_df$srh_baseline <- case_when(
+  population_B_merged_df$srh_baseline == 1 ~ "Excellent",
+  population_B_merged_df$srh_baseline == 2 ~ "Very Good",
+  population_B_merged_df$srh_baseline == 3 ~ "Good",
+  population_B_merged_df$srh_baseline == 4 ~ "Fair",
+  population_B_merged_df$srh_baseline == 5 ~ "Poor",
+  TRUE ~ NA_character_  # to avoid accidental NA coercion
+)
+
+population_B_merged_df$srh_followup <- case_when(
+  population_B_merged_df$srh_followup == 1 ~ "Excellent",
+  population_B_merged_df$srh_followup == 2 ~ "Very Good",
+  population_B_merged_df$srh_followup == 3 ~ "Good",
+  population_B_merged_df$srh_followup == 4 ~ "Fair",
+  population_B_merged_df$srh_followup == 5 ~ "Poor",
+  TRUE ~ NA_character_
+)
+
+# 3. Convert to ordered factor for proper ordering
+population_B_merged_df$srh_baseline <- factor(population_B_merged_df$srh_baseline, levels = srh_levels, ordered = TRUE)
+population_B_merged_df$srh_followup <- factor(population_B_merged_df$srh_followup, levels = srh_levels, ordered = TRUE)
+
+# 4. Create a numeric version to calculate change (lower number means better health)
+population_B_merged_df$srh_baseline_num <- as.numeric(population_B_merged_df$srh_baseline)
+population_B_merged_df$srh_followup_num <- as.numeric(population_B_merged_df$srh_followup)
+
+# 5. Calculate change and categorize into Improved, Decreased, or Unchanged
+population_B_merged_df$srh_change <- with(population_B_merged_df, ifelse(
+  is.na(srh_baseline_num) | is.na(srh_followup_num), NA,
+  ifelse(srh_followup_num < srh_baseline_num, "Improved",
+    ifelse(srh_followup_num > srh_baseline_num, "Decreased",
+      ifelse(srh_followup_num == srh_baseline_num & srh_baseline_num %in% c(1, 2), "Consistent high SRH",
+        ifelse(srh_followup_num == srh_baseline_num & srh_baseline_num %in% c(4, 5), "Consistent low SRH",
+          ifelse(srh_followup_num == srh_baseline_num & srh_baseline_num == 3, "Consistent moderate SRH",
+                 NA)
+        )
+      )
+    )
+  )
+))
+
+
+
+
+# 6. See the results (include NAs in the table output)
+table(population_B_merged_df$srh_change, useNA = "ifany")
+
+```
+
+TABLE 5: CARDIOMETABOLIC OUTCOMES IN THE SRH TRAJECTORY GROUPS
+```{r}
+# --- Summarize outcomes by SRH trajectory group ---
+
+# Function to summarize counts and percentages for categorical outcomes by SRH group
+summarize_by_srh_group <- function(data, outcome_var) {
+  data %>%
+    filter(!is.na(.data[[outcome_var]]), !is.na(srh_change)) %>%
+    count(SRH_Group = srh_change, Category = .data[[outcome_var]]) %>%
+    group_by(SRH_Group) %>%
+    mutate(
+      percent = round(100 * n / sum(n), 1),
+      label = paste0(n, " (", percent, "%)")
+    ) %>%
+    ungroup() %>%
+    select(Category, label, SRH_Group)
+}
+
+# Function to make a table for a specific outcome across SRH groups
+make_srh_table <- function(outcome_name, outcome_var, data) {
+  combined <- summarize_by_srh_group(data, outcome_var) %>%
+    pivot_wider(names_from = SRH_Group, values_from = label, values_fill = list(label = "0 (0%)")) %>%
+    arrange(Category) %>%
+    mutate(Variable = paste0("   ", Category)) %>%
+    select(Variable, everything(), -Category)
+
+  # Add header row
+  header_row <- tibble(
+    Variable = outcome_name,
+    !!!setNames(rep(NA_character_, ncol(combined) - 1), colnames(combined)[-1])
+  )
+
+  bind_rows(header_row, combined) %>%
+    mutate(across(everything(), ~ replace(., is.na(.), "")))
+}
+
+# --- Apply for each cardiometabolic outcome ---
+
+ht_srh_table <- make_srh_table("Hypertension (Follow-up)", "hypertension_followup", population_B_merged_df)
+dyslip_srh_table <- make_srh_table("Dyslipidemia (Follow-up)", "dyslipidemia_followup", population_B_merged_df)
+co_srh_table <- make_srh_table("Central Obesity (Follow-up)", "central_obesity_category_followup", population_B_merged_df)
+glucose_srh_table <- make_srh_table("Glucose Intolerance (Follow-up)", "glucose_intolerance_followup", population_B_merged_df)
+
+# --- Combine all tables ---
+final_srh_table <- bind_rows(ht_srh_table, dyslip_srh_table, co_srh_table, glucose_srh_table)
+
+# --- Format table ---
+header_rows <- which(final_srh_table %>% select(-Variable) %>% apply(1, function(x) all(x == "")))
+
+ft_srh <- flextable(final_srh_table) %>%
+  bold(i = header_rows, j = 1, part = "body") %>%
+  fontsize(size = 12, i = header_rows, part = "body") %>%
+  fontsize(size = 11, part = "body") %>%
+  autofit()
+
+# --- Export to Word ---
+doc <- read_docx() %>%
+  body_add_par("Cardiometabolic Outcomes by SRH Trajectory", style = "heading 1") %>%
+  body_add_flextable(ft_srh)
+
+print(doc, target = "cardiometabolic_outcomes_by_SRH.docx")
+
+```
+
+
+
+UNADJUSTED LOGISTIC REGRESSION HYPERTENSION
+```{r}
+population_B_merged_df$srh_change<- factor(population_B_merged_df$srh_change, levels = c(
+  "Consistent high SRH", 
+  "Consistent moderate SRH", 
+  "Consistent low SRH", 
+  "Improved", 
+  "Decreased"
+))
+
+# Set reference group: Consistent High
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Unadjusted model
+model <- glm(hypertension_followup ~ srh_change, data = population_B_merged_df, family = binomial)
+summary(model)
+
+# Odds ratios
+exp(coef(model))
+
+# 95% Confidence Intervals for odds ratios
+exp(confint(model))
+```
+
+UNADJUSTED LOGISTIC REGRESSION DYSLIPIDEMIA
+```{r}
+population_B_merged_df$srh_change<- factor(population_B_merged_df$srh_change, levels = c(
+  "Consistent high SRH", 
+  "Consistent moderate SRH", 
+  "Consistent low SRH", 
+  "Improved", 
+  "Decreased"
+))
+
+# Set reference group: Consistent High
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Unadjusted model
+model <- glm(dyslipidemia_followup ~ srh_change, data = population_B_merged_df, family = binomial)
+summary(model)
+
+# Odds ratios
+exp(coef(model))
+
+# 95% Confidence Intervals for odds ratios
+exp(confint(model))
+
+```
+
+UNADJUSTED ORDINAL LOGISTIC REGRESSION FOR CENTRAL ADIPOSITY
+```{r}
+library(MASS)
+
+# Make sure your outcome is an ordered factor
+population_B_merged_df$central_obesity_category_followup <- factor(
+  population_B_merged_df$central_obesity_category_followup,
+  levels = c("Normal", "Increased risk", "Greatly increased risk"),
+  ordered = TRUE
+)
+
+# Make sure your exposure is a factor with reference set (example: Consistent high SRH)
+population_B_merged_df$srh_change <- factor(population_B_merged_df$srh_change, levels = c(
+  "Consistent high SRH",
+  "Consistent moderate SRH",
+  "Consistent low SRH",
+  "Improved",
+  "Decreased"
+))
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Fit unadjusted ordinal logistic regression model
+model_ordinal <- polr(central_obesity_category_followup ~ srh_change, data = population_B_merged_df, Hess=TRUE)
+
+summary(model_ordinal)
+
+# To get odds ratios and confidence intervals
+coef_table <- coef(summary(model_ordinal))
+ORs <- exp(coef(model_ordinal))
+ci <- confint(model_ordinal)
+OR_ci <- exp(ci)
+
+cbind(OR = ORs, Lower_CI = OR_ci[,1], Upper_CI = OR_ci[,2])
+
+```
+
+
+UNADJUSTED ORDINAL LOGISTIC REGRESSION FOR GLUCOSE INTOLERANCE 
+```{r}
+library(MASS)  # for polr()
+
+# Convert glucose_intolerance_followup to an ordered factor
+population_B_merged_df$glucose_intolerance_followup <- factor(
+  population_B_merged_df$glucose_intolerance_followup,
+  levels = c("Normal", "Prediabetes", "Diabetes"),
+  ordered = TRUE
+)
+
+# Convert srh_change to a factor and set reference level
+population_B_merged_df$srh_change <- factor(population_B_merged_df$srh_change,
+                                           levels = c("Consistent high SRH",
+                                                      "Consistent moderate SRH",
+                                                      "Consistent low SRH",
+                                                      "Improved",
+                                                      "Decreased"))
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Fit the ordinal logistic regression model (unadjusted)
+model_glucose <- polr(glucose_intolerance_followup ~ srh_change, data = population_B_merged_df, Hess=TRUE)
+
+# Summary of the model
+summary(model_glucose)
+
+# Calculate odds ratios and 95% confidence intervals
+coef_table <- coef(summary(model_glucose))
+ORs <- exp(coef(model_glucose))
+ci <- confint(model_glucose)
+OR_ci <- exp(ci)
+
+# Combine OR and CI into a table
+results <- cbind(OR = ORs, Lower_CI = OR_ci[,1], Upper_CI = OR_ci[,2])
+print(results)
+
+```
+
+
+EXPORT UNADJUSTED REGRESSION RESULTS TO WORD FOR HYPERTENSION, DYSLIPIDEMIA, CENTRAL ADIPOSITY AND GLUCOSE INTOLERANCE 
+```{r}
+library(MASS)
+library(broom)
+library(dplyr)
+
+# Make sure your factors are set correctly
+population_B_merged_df$srh_change <- factor(population_B_merged_df$srh_change,
+                                           levels = c("Consistent high SRH", "Consistent moderate SRH",
+                                                      "Consistent low SRH", "Improved", "Decreased"))
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Outcomes: convert to ordered factors as needed
+population_B_merged_df$central_obesity_category_followup <- factor(population_B_merged_df$central_obesity_category_followup,
+                                                                  levels = c("Normal", "Increased risk", "Greatly increased risk"),
+                                                                  ordered = TRUE)
+
+population_B_merged_df$glucose_intolerance_followup <- factor(population_B_merged_df$glucose_intolerance_followup,
+                                                             levels = c("Normal", "Prediabetes", "Diabetes"),
+                                                             ordered = TRUE)
+
+# 1. Ordinal logistic for central adiposity
+model_adiposity <- polr(central_obesity_category_followup ~ srh_change, data = population_B_merged_df, Hess=TRUE)
+tidy_adiposity <- broom::tidy(model_adiposity, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Central Adiposity")
+
+# 2. Ordinal logistic for glucose intolerance
+model_glucose <- polr(glucose_intolerance_followup ~ srh_change, data = population_B_merged_df, Hess=TRUE)
+tidy_glucose <- broom::tidy(model_glucose, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Glucose Intolerance")
+
+# 3. Logistic regression for hypertension
+model_hypertension <- glm(hypertension_followup ~ srh_change, data = population_B_merged_df, family = binomial)
+tidy_hypertension <- broom::tidy(model_hypertension, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Hypertension")
+
+# 4. Logistic regression for dyslipidemia
+model_dyslipidemia <- glm(dyslipidemia_followup ~ srh_change, data = population_B_merged_df, family = binomial)
+tidy_dyslipidemia <- broom::tidy(model_dyslipidemia, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Dyslipidemia")
+
+# Create flextables from your tidy results
+ft_hypertension <- flextable(tidy_hypertension) %>% autofit()
+ft_dyslipidemia <- flextable(tidy_dyslipidemia) %>% autofit()
+ft_adiposity <- flextable(tidy_adiposity) %>% autofit()
+ft_glucose <- flextable(tidy_glucose) %>% autofit()
+
+# Create a new Word document and add tables with headings
+doc <- read_docx()
+
+doc <- doc %>%
+  body_add_par("Hypertension", style = "heading 2") %>%
+  body_add_flextable(ft_hypertension) %>%
+  body_add_par("", style = "Normal") %>%
+  
+  body_add_par("Dyslipidemia", style = "heading 2") %>%
+  body_add_flextable(ft_dyslipidemia) %>%
+  body_add_par("", style = "Normal") %>%
+  
+  body_add_par("Central Adiposity", style = "heading 2") %>%
+  body_add_flextable(ft_adiposity) %>%
+  body_add_par("", style = "Normal") %>%
+  
+  body_add_par("Glucose Intolerance", style = "heading 2") %>%
+  body_add_flextable(ft_glucose)
+
+# Save the Word document
+print(doc, target = "Regression_unadjusted_results.docx")
+
+
+```
+
+
+HYPERTENSION: ADJUST FOR AGE AND SEX IN THE REGRESSION ANALYSIS
+```{r}
+model1 <- glm(hypertension_followup ~ srh_change + age_followup + SEX, 
+              data = population_B_merged_df, family = binomial)
+summary(model1)
+
+# Odds Ratios
+exp(coef(model1))
+
+# 95% Confidence Intervals
+exp(confint(model1))
+
+```
+
+DYSLIPIDIMEA: ADJUST FOR AGE AND SEX IN THE REGRESSION ANALYSIS
+```{r}
+model_dyslipidemia <- glm(dyslipidemia_followup ~ srh_change + age_followup + SEX, 
+                          data = population_B_merged_df, family = binomial)
+summary(model_dyslipidemia)
+exp(coef(model_dyslipidemia))
+exp(confint(model_dyslipidemia))
+```
+
+CENTRAL OBESITY: ADJUST FOR AGE AND SEX IN THE REGRESSION ANALYSIS
+```{r}
+model_obesity <- glm(central_obesity_category_followup ~ srh_change + age_followup + SEX, 
+                      data = population_B_merged_df, family = binomial)
+summary(model_obesity)
+exp(coef(model_obesity))
+exp(confint(model_obesity))
+```
+
+GLUCOSE INTOLERANCE: ADJUST FOR AGE AND SEX IN THE REGRESSION ANALYSIS
+```{r}
+model_glucoseit <- glm(glucose_intolerance_followup ~ srh_change + age_followup + SEX, 
+                      data = population_B_merged_df, family = binomial)
+summary(model_glucoseit)
+exp(coef(model_glucoseit))
+exp(confint(model_glucoseit))
+```
+
+EXPORT ADJUSTED REGRESSION FOR AGE AND SEX
+```{r}
+# Ensure correct factor levels
+population_B_merged_df$srh_change <- factor(population_B_merged_df$srh_change,
+                                           levels = c("Consistent high SRH", "Consistent moderate SRH",
+                                                      "Consistent low SRH", "Improved", "Decreased"))
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Ordered factors for ordinal outcomes
+population_B_merged_df$central_obesity_category_followup <- factor(population_B_merged_df$central_obesity_category_followup,
+                                                                  levels = c("Normal", "Increased risk", "Greatly increased risk"),
+                                                                  ordered = TRUE)
+
+population_B_merged_df$glucose_intolerance_followup <- factor(population_B_merged_df$glucose_intolerance_followup,
+                                                             levels = c("Normal", "Prediabetes", "Diabetes"),
+                                                             ordered = TRUE)
+
+# 1. Ordinal logistic: Central adiposity (adjusted)
+model_adiposity_adj <- polr(central_obesity_category_followup ~ srh_change + age_followup + SEX, 
+                            data = population_B_merged_df, Hess = TRUE)
+tidy_adiposity_adj <- tidy(model_adiposity_adj, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Central Adiposity (Adjusted)")
+
+# 2. Ordinal logistic: Glucose intolerance (adjusted)
+model_glucose_adj <- polr(glucose_intolerance_followup ~ srh_change + age_followup + SEX, 
+                          data = population_B_merged_df, Hess = TRUE)
+tidy_glucose_adj <- tidy(model_glucose_adj, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Glucose Intolerance (Adjusted)")
+
+# 3. Logistic regression: Hypertension (adjusted)
+model_hypertension_adj <- glm(hypertension_followup ~ srh_change + age_followup + SEX, 
+                              data = population_B_merged_df, family = binomial)
+tidy_hypertension_adj <- tidy(model_hypertension_adj, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Hypertension (Adjusted)")
+
+# 4. Logistic regression: Dyslipidemia (adjusted)
+model_dyslipidemia_adj <- glm(dyslipidemia_followup ~ srh_change + age_followup + SEX, 
+                              data = population_B_merged_df, family = binomial)
+tidy_dyslipidemia_adj <- tidy(model_dyslipidemia_adj, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Dyslipidemia (Adjusted)")
+
+# Create flextables
+ft_hypertension_adj <- flextable(tidy_hypertension_adj) %>% autofit()
+ft_dyslipidemia_adj <- flextable(tidy_dyslipidemia_adj) %>% autofit()
+ft_adiposity_adj <- flextable(tidy_adiposity_adj) %>% autofit()
+ft_glucose_adj <- flextable(tidy_glucose_adj) %>% autofit()
+
+# Create Word document and add all tables
+doc <- read_docx()
+
+doc <- doc %>%
+  body_add_par("Hypertension (Adjusted)", style = "heading 2") %>%
+  body_add_flextable(ft_hypertension_adj) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Dyslipidemia (Adjusted)", style = "heading 2") %>%
+  body_add_flextable(ft_dyslipidemia_adj) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Central Adiposity (Adjusted)", style = "heading 2") %>%
+  body_add_flextable(ft_adiposity_adj) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Glucose Intolerance (Adjusted)", style = "heading 2") %>%
+  body_add_flextable(ft_glucose_adj)
+
+# Save Word document
+print(doc, target = "Regression_adjusted_age,sex_results.docx")
+
+```
+
+REGRESSION ANALYSIS ADJUSTED FOR AGE, SEX AND BMI BASELINE
+```{r}
+# Ensure correct factor levels
+population_B_merged_df$srh_change <- factor(population_B_merged_df$srh_change,
+                                           levels = c("Consistent high SRH", "Consistent moderate SRH",
+                                                      "Consistent low SRH", "Improved", "Decreased"))
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Ordered factors for ordinal outcomes
+population_B_merged_df$central_obesity_category_followup <- factor(population_B_merged_df$central_obesity_category_followup,
+                                                                  levels = c("Normal", "Increased risk", "Greatly increased risk"),
+                                                                  ordered = TRUE)
+
+population_B_merged_df$glucose_intolerance_followup <- factor(population_B_merged_df$glucose_intolerance_followup,
+                                                             levels = c("Normal", "Prediabetes", "Diabetes"),
+                                                             ordered = TRUE)
+
+# 1. Ordinal logistic: Central adiposity (adjusted with BMI)
+model_adiposity_bmi <- polr(central_obesity_category_followup ~ srh_change + age_followup + SEX + bmi_baseline, 
+                            data = population_B_merged_df, Hess = TRUE)
+tidy_adiposity_bmi <- tidy(model_adiposity_bmi, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Central Adiposity (Adjusted incl. BMI)")
+
+# 2. Ordinal logistic: Glucose intolerance (adjusted with BMI)
+model_glucose_bmi <- polr(glucose_intolerance_followup ~ srh_change + age_followup + SEX + bmi_baseline, 
+                          data = population_B_merged_df, Hess = TRUE)
+tidy_glucose_bmi <- tidy(model_glucose_bmi, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Glucose Intolerance (Adjusted incl. BMI)")
+
+# 3. Logistic regression: Hypertension (adjusted with BMI)
+model_hypertension_bmi <- glm(hypertension_followup ~ srh_change + age_followup + SEX + bmi_baseline, 
+                              data = population_B_merged_df, family = binomial)
+tidy_hypertension_bmi <- tidy(model_hypertension_bmi, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Hypertension (Adjusted incl. BMI)")
+
+# 4. Logistic regression: Dyslipidemia (adjusted with BMI)
+model_dyslipidemia_bmi <- glm(dyslipidemia_followup ~ srh_change + age_followup + SEX + bmi_baseline, 
+                              data = population_B_merged_df, family = binomial)
+tidy_dyslipidemia_bmi <- tidy(model_dyslipidemia_bmi, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Dyslipidemia (Adjusted incl. BMI)")
+
+# Create flextables
+ft_hypertension_bmi <- flextable(tidy_hypertension_bmi) %>% autofit()
+ft_dyslipidemia_bmi <- flextable(tidy_dyslipidemia_bmi) %>% autofit()
+ft_adiposity_bmi <- flextable(tidy_adiposity_bmi) %>% autofit()
+ft_glucose_bmi <- flextable(tidy_glucose_bmi) %>% autofit()
+
+# Create Word document and add all tables
+doc <- read_docx()
+
+doc <- doc %>%
+  body_add_par("Hypertension (Adjusted incl. BMI)", style = "heading 2") %>%
+  body_add_flextable(ft_hypertension_bmi) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Dyslipidemia (Adjusted incl. BMI)", style = "heading 2") %>%
+  body_add_flextable(ft_dyslipidemia_bmi) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Central Adiposity (Adjusted incl. BMI)", style = "heading 2") %>%
+  body_add_flextable(ft_adiposity_bmi) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Glucose Intolerance (Adjusted incl. BMI)", style = "heading 2") %>%
+  body_add_flextable(ft_glucose_bmi)
+
+# Save Word document
+print(doc, target = "Regression_adjusted_age_sex_BMI_results.docx")
+
+```
+
+
+
+
+REGRESSION ANALYSIS WHERE ADDJUSTED FOR AGE, SEX, BMI AND BASELINE CARDIOMETABOLIC OUTCOMES
+```{r}
+# Ensure factor reference level
+population_B_merged_df$srh_change <- factor(population_B_merged_df$srh_change,
+                                            levels = c("Consistent high SRH", "Consistent moderate SRH",
+                                                       "Consistent low SRH", "Improved", "Decreased"))
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Ensure outcome categories are correctly ordered
+population_B_merged_df$central_obesity_category_followup <- factor(
+  population_B_merged_df$central_obesity_category_followup,
+  levels = c("Normal", "Increased risk", "Greatly increased risk"),
+  ordered = TRUE
+)
+
+population_B_merged_df$glucose_intolerance_followup <- factor(
+  population_B_merged_df$glucose_intolerance_followup,
+  levels = c("Normal", "Prediabetes", "Diabetes"),
+  ordered = TRUE
+)
+
+# Ensure baseline outcomes are formatted correctly
+# (assumes binary outcomes are coded 0/1 and ordinal as ordered factors)
+
+# 1. Hypertension (logistic)
+model_hypertension_all <- glm(hypertension_followup ~ srh_change + age_followup + SEX +
+                            hypertension_baseline + bmi_baseline,
+                          data = population_B_merged_df, family = binomial)
+tidy_hypertension <- broom::tidy(model_hypertension_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Hypertension")
+
+# 2. Dyslipidemia (logistic)
+model_dyslipidemia_all <- glm(dyslipidemia_followup ~ srh_change + age_followup + SEX +
+                            dyslipidemia_baseline + bmi_baseline,
+                          data = population_B_merged_df, family = binomial)
+tidy_dyslipidemia <- broom::tidy(model_dyslipidemia_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Dyslipidemia")
+
+# 3. Central Adiposity (ordinal logistic)
+model_adiposity_all <- polr(central_obesity_category_followup ~ srh_change + age_followup + SEX +
+                          central_obesity_category_baseline + bmi_baseline,
+                        data = population_B_merged_df, Hess = TRUE)
+tidy_adiposity <- broom::tidy(model_adiposity_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Central Adiposity")
+
+# 4. Glucose Intolerance (ordinal logistic)
+model_glucose_all <- polr(glucose_intolerance_followup ~ srh_change + age_followup + SEX +
+                        glucose_intolerance_baseline + bmi_baseline,
+                      data = population_B_merged_df, Hess = TRUE)
+tidy_glucose <- broom::tidy(model_glucose_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Glucose Intolerance")
+
+
+# Create flextables
+ft_hypertension <- flextable(tidy_hypertension) %>% autofit()
+ft_dyslipidemia <- flextable(tidy_dyslipidemia) %>% autofit()
+ft_adiposity <- flextable(tidy_adiposity) %>% autofit()
+ft_glucose <- flextable(tidy_glucose) %>% autofit()
+
+# Compile to Word
+doc <- read_docx()
+
+doc <- doc %>%
+  body_add_par("Hypertension (Adjusted for age, sex, baseline status)", style = "heading 2") %>%
+  body_add_flextable(ft_hypertension) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Dyslipidemia (Adjusted for age, sex, baseline status)", style = "heading 2") %>%
+  body_add_flextable(ft_dyslipidemia) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Central Adiposity (Adjusted for age, sex, baseline status)", style = "heading 2") %>%
+  body_add_flextable(ft_adiposity) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Glucose Intolerance (Adjusted for age, sex, baseline status)", style = "heading 2") %>%
+  body_add_flextable(ft_glucose)
+
+# Save the file
+print(doc, target = "Regression_adjusted_age_sex_bmi_cardiometabolic_results.docx")
+```
+
+
+FOREST PLOT OF ALL REGRESSION DATA (OR)
+```{r}
+library(dplyr)
+library(broom)
+library(ggplot2)
+library(purrr)
+library(grid)
+
+#--- 1. Put all models into a list
+# Replace with your actual model objects
+models <- list(
+  Hypertension = list(
+    Model1 = model_hypertension,
+    Model2 = model_hypertension_adj,
+    Model3 = model_hypertension_bmi,
+    Model4 = model_hypertension_all
+  ),
+  Dyslipidemia = list(
+    Model1 = model_dyslipidemia,
+    Model2 = model_dyslipidemia_adj,
+    Model3 = model_dyslipidemia_bmi,
+    Model4 = model_dyslipidemia_all
+  ),
+  Adiposity = list(
+    Model1 = model_adiposity,
+    Model2 = model_adiposity_adj,
+    Model3 = model_adiposity_bmi,
+    Model4 = model_adiposity_all
+  ),
+  Glucose = list(
+    Model1 = model_glucose,
+    Model2 = model_glucose_adj,
+    Model3 = model_glucose_bmi,
+    Model4 = model_glucose_all
+  )
+)
+
+#--- 2. Tidy all models into one dataframe
+all_results <- map_df(names(models), function(outcome) {
+  map_df(names(models[[outcome]]), function(m) {
+    tidy(models[[outcome]][[m]], exponentiate = TRUE, conf.int = TRUE) %>%
+      mutate(Outcome = outcome, Model = m)
+  })
+})
+
+#--- 3. Filter only SRH trajectories
+all_results <- all_results %>%
+  filter(grepl("Consistent|Improved|Decreased", term)) %>%
+  mutate(
+    Trajectory = case_when(
+      grepl("Consistent moderate", term) ~ "Consistent moderate SRH",
+      grepl("Consistent low", term) ~ "Consistent low SRH",
+      grepl("Improved", term) ~ "Improved SRH",
+      grepl("Decreased", term) ~ "Decreased SRH",
+      TRUE ~ term
+    )
+  )
+
+# Make Trajectory a factor in the desired order
+all_results$Trajectory <- factor(all_results$Trajectory,
+                                 levels = c("Improved SRH", "Decreased SRH", 
+                                            "Consistent moderate SRH",  "Consistent low SRH"))
+
+# Create numeric y-axis with spacing (multiply by 2 to add space)
+all_results$Trajectory_y <- as.numeric(all_results$Trajectory) * 2
+
+  
+#--- 4. Forest plot
+ggplot(all_results, aes(x = estimate, y = Trajectory, color = Model)) +
+  geom_point(position = position_dodge(width = 0.8), size = 4, shape = 16) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 position = position_dodge(width = 0.8), height = 0.3, size = 1) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  scale_x_log10() +
+  scale_color_manual(values = c("black", "gray20", "gray50", "gray70")) +
+  facet_wrap(~ Outcome, scales = "free_y") +
+  labs(x = "Odds Ratio (log scale)",
+       y = "SRH Trajectory Group",
+       title = "Associations between SRH trajectory and cardiometabolic outcomes",
+       color = NULL) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.y = element_text(size = 13, margin = margin(r = 15)),  # more space to the right
+    axis.text.x = element_text(size = 12),
+    legend.position = "bottom",
+    panel.grid.major.y = element_line(color = "gray85"),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+
+EXPLORATORY ANALYSIS: REGRESSION ANALYSIS WITH ADJUSTMENT FOR AGE, SEX, BASELINE BMI, BASELINE CARDIOMETABOLIC OUTCOME, AND LIFESTYLE FACTORS 
+```{r}
+# Ensure factor reference level
+population_B_merged_df$srh_change <- factor(population_B_merged_df$srh_change,
+                                            levels = c("Consistent high SRH", "Consistent moderate SRH",
+                                                       "Consistent low SRH", "Improved", "Decreased"))
+population_B_merged_df$srh_change <- relevel(population_B_merged_df$srh_change, ref = "Consistent high SRH")
+
+# Ensure outcome categories are correctly ordered
+# Central obesity
+population_B_merged_df$central_obesity_category_followup <- factor(
+  population_B_merged_df$central_obesity_category_followup,
+  levels = c("Normal", "Increased risk", "Greatly increased risk"),
+  ordered = TRUE
+)
+
+# Glucose
+population_B_merged_df$glucose_intolerance_followup <- factor(
+  population_B_merged_df$glucose_intolerance_followup,
+  levels = c("Normal", "Prediabetes", "Diabetes"),
+  ordered = TRUE
+)
+
+# Smoking
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(RYGERDU0 = factor(RYGERDU0,
+                                   labels = c("Current", "Occasional", "Former", "Never")))
+
+# Alcohol
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(alcohol_cat_populationB = factor(alcohol_cat_populationB,
+                                          levels = c("Within recommendation", "Above recommendation", "Absent")))
+
+# Education
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(edu_level = factor(edu_level,
+                            levels = c("Low", "Medium", "High")))
+
+# Physical activity (baseline)
+population_B_merged_df <- population_B_merged_df %>%
+  mutate(physical_activity_baseline = factor(physical_activity_baseline_populationB,
+                                             levels = c("Sedentary", "Low activity", "Medium/High activity")))
+
+# Ensure baseline outcomes are formatted correctly
+
+
+# 1. Hypertension (logistic)
+model_hypertension_all <- glm(hypertension_followup ~ srh_change + age_followup + SEX +
+                            hypertension_baseline + bmi_baseline + RYGERDU0 + alcohol_cat_populationB + edu_level + physical_activity_baseline_populationB,
+                          data = population_B_merged_df, family = binomial)
+tidy_hypertension_all <- tidy(model_hypertension_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Hypertension")
+
+# 2. Dyslipidemia (logistic)
+model_dyslipidemia_all <- glm(dyslipidemia_followup ~ srh_change + age_followup + SEX +
+                            dyslipidemia_baseline + bmi_baseline + RYGERDU0 + alcohol_cat_populationB + edu_level + physical_activity_baseline_populationB,
+                          data = population_B_merged_df, family = binomial)
+tidy_dyslipidemia_all <- tidy(model_dyslipidemia_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Dyslipidemia")
+
+# 3. Central Adiposity (ordinal logistic)
+model_adiposity_all <- polr(central_obesity_category_followup ~ srh_change + age_followup + SEX +
+                          central_obesity_category_baseline + bmi_baseline + RYGERDU0 + alcohol_cat_populationB + edu_level + physical_activity_baseline_populationB,
+                        data = population_B_merged_df, Hess = TRUE)
+tidy_adiposity_all <- tidy(model_adiposity_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Central Adiposity")
+
+
+# 4. Glucose Intolerance (ordinal logistic)
+model_glucose_all <- polr(glucose_intolerance_followup ~ srh_change + age_followup + SEX +
+                        glucose_intolerance_baseline + bmi_baseline + RYGERDU0 + alcohol_cat_populationB + edu_level + physical_activity_baseline_populationB,
+                      data = population_B_merged_df, Hess = TRUE)
+tidy_glucose_all <- tidy(model_glucose_all, conf.int = TRUE, exponentiate = TRUE) %>%
+  mutate(Outcome = "Glucose Intolerance")
+
+
+# Create flextables
+ft_hypertension_all <- flextable(tidy_hypertension_all) %>% autofit()
+ft_dyslipidemia_all <- flextable(tidy_dyslipidemia_all) %>% autofit()
+ft_adiposity_all <- flextable(tidy_adiposity_all) %>% autofit()
+ft_glucose_all <- flextable(tidy_glucose_all) %>% autofit()
+
+# Compile to Word
+doc <- read_docx()
+
+doc <- doc %>%
+  body_add_par("Hypertension (Adjusted for age, sex, baseline status, and lifestyle factors)", style = "heading 2") %>%
+  body_add_flextable(ft_hypertension_all) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Dyslipidemia (Adjusted for age, sex, baseline status, and lifestyle factors)", style = "heading 2") %>%
+  body_add_flextable(ft_dyslipidemia_all) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Central Adiposity (Adjusted for age, sex, baseline status, and lifestyle factors)", style = "heading 2") %>%
+  body_add_flextable(ft_adiposity_all) %>%
+  body_add_par("", style = "Normal") %>%
+
+  body_add_par("Glucose Intolerance (Adjusted for age, sex, baseline status, and lifestyle factors)", style = "heading 2") %>%
+  body_add_flextable(ft_glucose_all)
+
+# Save the file
+print(doc, target = "Regression_adjusted_age_sex_bmi_cardiometabolic_lifestyle_results.docx") 
+```
+
+
+
+
+
+
+SENSITIVITY ANALYSIS: “Does intervention intensity create differences in the population that could bias my main results?"
+```{r}
+#COMPARE INTERVENTION GROUP A AND B AT FOLLOW-UP TO SEE WHETHER THERE IS ANY DIFFERENCES BETWEEN THEM. 
+# Subset to each intervention group
+high_group_df <- population_B_merged_df %>% filter(GRUPPE == 1)
+low_group_df  <- population_B_merged_df %>% filter(GRUPPE == 2)
+popB_follow_df <- population_B_merged_df %>% filter(GRUPPE %in% c(1, 2))
+
+# Get N values for each group
+n_popB <- nrow(popB_follow_df)
+n_high <- nrow(high_group_df)
+n_low  <- nrow(low_group_df)
+
+# Prepare column names with N
+col_popB  <- paste0("Population B Follow-up (N=", n_popB, ")")
+col_high  <- paste0("Group A High-intensity intervention (N=", n_high, ")")
+col_low   <- paste0("Group B Low-intensity Follow-up (N=", n_low, ")")
+
+# Prepare results table
+intervention_followup_table <- tibble(
+  Variable = variables,
+  !!col_popB := NA_character_,
+  !!col_high := NA_character_,
+  !!col_low := NA_character_,
+  `P-value Group A vs Group B` = NA_character_
+)
+
+# Fill with means/medians and p-values
+for (i in seq_along(variables)) {
+  var <- variables[i]
+  var_followup <- paste0(var, "_followup")
+  
+  formatter <- if (var %in% non_normal_vars) get_median_iqr else get_mean_sd
+  
+  intervention_followup_table[[col_popB]][i] <- formatter(popB_follow_df, var_followup)
+  intervention_followup_table[[col_high]][i]  <- formatter(high_group_df, var_followup)
+  intervention_followup_table[[col_low]][i]   <- formatter(low_group_df, var_followup)
+  
+  if (var %in% non_normal_vars) {
+    p_val <- wilcox.test(high_group_df[[var_followup]], low_group_df[[var_followup]])$p.value
+  } else {
+    p_val <- t.test(high_group_df[[var_followup]], low_group_df[[var_followup]])$p.value
+  }
+  
+  intervention_followup_table$`P-value Group A vs Group B`[i] <- ifelse(
+    is.na(p_val), "", ifelse(p_val < 0.001, "<0.001", round(p_val, 3))
+  )
+}
+
+# View result
+print(intervention_followup_table)
+
+```
+
+EXPORT TABLE TO WORD FOR SENSITIVITY ANALYSIS
+```{r}
+library(flextable)
+library(officer)
+
+# Create a flextable
+ft <- flextable(intervention_followup_table)
+
+# Optional: style the table
+ft <- autofit(ft) %>%
+  theme_vanilla() %>%
+  align(align = "center", part = "all")
+
+# Save to Word
+read_docx() %>%
+  body_add_flextable(ft) %>%
+  print(target = "intervention_followup_table.docx")
+```
+
+SENSITIVITY ANALYSIS ON DIFFERENCES IN SRH AND LIFESTYLE BETWEEN INTERVENTION GROUP AT FOLLOW-UP. 
+```{r}
+# --- Subset intervention groups at follow-up ---
+high_group_df <- population_B_merged_df %>% filter(GRUPPE == 1)
+low_group_df  <- population_B_merged_df %>% filter(GRUPPE == 2)
+popB_follow_df <- population_B_merged_df %>% filter(GRUPPE %in% c(1,2))
+
+# --- Get N for each group ---
+n_high <- nrow(high_group_df)
+n_low  <- nrow(low_group_df)
+n_popB <- nrow(popB_follow_df)
+
+# --- Variables to summarize ---
+variables <- c("srh_followup", "smoking_followup", "alcohol_cat_followup", 
+               "edu_level", "physical_activity_followup_populationB")
+
+# --- Summarize SRH and lifestyle factors ---
+srh_high <- summarize_outcome(high_group_df, "srh_followup", paste0("Group A High-intensity (N=", n_high, ")"))
+srh_low  <- summarize_outcome(low_group_df, "srh_followup", paste0("Group B Low-intensity (N=", n_low, ")"))
+srh_pop  <- summarize_outcome(popB_follow_df, "srh_followup", paste0("Population B Follow-up (N=", n_popB, ")"))
+
+smoking_high <- summarize_outcome(high_group_df, "smoking_followup", paste0("Group A High-intensity (N=", n_high, ")"))
+smoking_low  <- summarize_outcome(low_group_df, "smoking_followup", paste0("Group B Low-intensity (N=", n_low, ")"))
+smoking_pop  <- summarize_outcome(popB_follow_df, "smoking_followup", paste0("Population B Follow-up (N=", n_popB, ")"))
+
+alcohol_high <- summarize_outcome(high_group_df, "alcohol_cat_followup", paste0("Group A High-intensity (N=", n_high, ")"))
+alcohol_low  <- summarize_outcome(low_group_df, "alcohol_cat_followup", paste0("Group B Low-intensity (N=", n_low, ")"))
+alcohol_pop  <- summarize_outcome(popB_follow_df, "alcohol_cat_followup", paste0("Population B Follow-up (N=", n_popB, ")"))
+
+edu_high <- summarize_outcome(high_group_df, "edu_level", paste0("Group A High-intensity (N=", n_high, ")"))
+edu_low  <- summarize_outcome(low_group_df, "edu_level", paste0("Group B Low-intensity (N=", n_low, ")"))
+edu_pop  <- summarize_outcome(popB_follow_df, "edu_level", paste0("Population B Follow-up (N=", n_popB, ")"))
+
+pa_high <- summarize_outcome(high_group_df, "physical_activity_followup_populationB", paste0("Group A High-intensity (N=", n_high, ")"))
+pa_low  <- summarize_outcome(low_group_df, "physical_activity_followup_populationB", paste0("Group B Low-intensity (N=", n_low, ")"))
+pa_pop  <- summarize_outcome(popB_follow_df, "physical_activity_followup_populationB", paste0("Population B Follow-up (N=", n_popB, ")"))
+
+# --- Make tables ---
+srh_table <- make_outcome_table("Self-rated Health (SRH)", list(srh_high, srh_low, srh_pop))
+smoking_table <- make_outcome_table("Smoking", list(smoking_high, smoking_low, smoking_pop))
+alcohol_table <- make_outcome_table("Alcohol Consumption", list(alcohol_high, alcohol_low, alcohol_pop))
+education_table <- make_outcome_table("Education Level", list(edu_high, edu_low, edu_pop))
+pa_table <- make_outcome_table("Physical Activity", list(pa_high, pa_low, pa_pop))
+
+# --- Combine all tables ---
+final_table <- bind_rows(srh_table, smoking_table, alcohol_table, education_table, pa_table)
+
+# --- Export to Word ---
+library(flextable)
+library(officer)
+
+header_rows <- which(final_table %>% dplyr::select(-Variable) %>% apply(1, function(x) all(x == "")))
+
+ft <- flextable(final_table) %>%
+  bold(i = header_rows, j = 1, part = "body") %>%
+  fontsize(size = 12, i = header_rows, part = "body") %>%
+  fontsize(size = 11, part = "body") %>%
+  autofit()
+
+doc <- read_docx() %>%
+  body_add_par("SRH and Lifestyle Factors by Intervention Group", style = "heading 1") %>%
+  body_add_flextable(ft)
+
+print(doc, target = "SRH_lifestyle_intervention_summary.docx")
+
+
+```
+
+
+SENSITIVITY ANALYSIS ON DIFFERENCES IN SRH AND LIFESTYLE BETWEEN INTERVENTION GROUP AT BASELINE
+```{r}
+# --- Subset intervention groups at baseline ---
+high_group_df <- population_B_merged_df %>% filter(GRUPPE == 1)
+low_group_df  <- population_B_merged_df %>% filter(GRUPPE == 2)
+popB_base_df  <- population_B_merged_df %>% filter(GRUPPE %in% c(1,2))
+
+# --- Get N for each group ---
+n_high <- nrow(high_group_df)
+n_low  <- nrow(low_group_df)
+n_popB <- nrow(popB_base_df)
+
+# --- Summarize SRH and lifestyle factors at baseline ---
+srh_high <- summarize_outcome(high_group_df, "srh_baseline", paste0("Group A High-intensity (N=", n_high, ")"))
+srh_low  <- summarize_outcome(low_group_df, "srh_baseline", paste0("Group B Low-intensity (N=", n_low, ")"))
+srh_pop  <- summarize_outcome(popB_base_df, "srh_baseline", paste0("Population B Baseline (N=", n_popB, ")"))
+
+smoking_high <- summarize_outcome(high_group_df, "smoking_baseline", paste0("Group A High-intensity (N=", n_high, ")"))
+smoking_low  <- summarize_outcome(low_group_df, "smoking_baseline", paste0("Group B Low-intensity (N=", n_low, ")"))
+smoking_pop  <- summarize_outcome(popB_base_df, "smoking_baseline", paste0("Population B Baseline (N=", n_popB, ")"))
+
+alcohol_high <- summarize_outcome(high_group_df, "alcohol_cat_populationB", paste0("Group A High-intensity (N=", n_high, ")"))
+alcohol_low  <- summarize_outcome(low_group_df, "alcohol_cat_populationB", paste0("Group B Low-intensity (N=", n_low, ")"))
+alcohol_pop  <- summarize_outcome(popB_base_df, "alcohol_cat_populationB", paste0("Population B Baseline (N=", n_popB, ")"))
+
+edu_high <- summarize_outcome(high_group_df, "edu_level", paste0("Group A High-intensity (N=", n_high, ")"))
+edu_low  <- summarize_outcome(low_group_df, "edu_level", paste0("Group B Low-intensity (N=", n_low, ")"))
+edu_pop  <- summarize_outcome(popB_base_df, "edu_level", paste0("Population B Baseline (N=", n_popB, ")"))
+
+pa_high <- summarize_outcome(high_group_df, "physical_activity_baseline_populationB", paste0("Group A High-intensity (N=", n_high, ")"))
+pa_low  <- summarize_outcome(low_group_df, "physical_activity_baseline_populationB", paste0("Group B Low-intensity (N=", n_low, ")"))
+pa_pop  <- summarize_outcome(popB_base_df, "physical_activity_baseline_populationB", paste0("Population B Baseline (N=", n_popB, ")"))
+
+# --- Make tables ---
+srh_table <- make_outcome_table("Self-rated Health (SRH)", list(srh_high, srh_low, srh_pop))
+smoking_table <- make_outcome_table("Smoking", list(smoking_high, smoking_low, smoking_pop))
+alcohol_table <- make_outcome_table("Alcohol Consumption", list(alcohol_high, alcohol_low, alcohol_pop))
+education_table <- make_outcome_table("Education Level", list(edu_high, edu_low, edu_pop))
+pa_table <- make_outcome_table("Physical Activity", list(pa_high, pa_low, pa_pop))
+
+# --- Combine all tables ---
+final_table <- bind_rows(srh_table, smoking_table, alcohol_table, education_table, pa_table)
+
+# --- Export to Word ---
+library(flextable)
+library(officer)
+
+header_rows <- which(final_table %>% dplyr::select(-Variable) %>% apply(1, function(x) all(x == "")))
+
+ft <- flextable(final_table) %>%
+  bold(i = header_rows, j = 1, part = "body") %>%
+  fontsize(size = 12, i = header_rows, part = "body") %>%
+  fontsize(size = 11, part = "body") %>%
+  autofit()
+
+doc <- read_docx() %>%
+  body_add_par("Baseline SRH and Lifestyle Factors by Intervention Group", style = "heading 1") %>%
+  body_add_flextable(ft)
+
+print(doc, target = "SRH_lifestyle_baseline_summary.docx")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
