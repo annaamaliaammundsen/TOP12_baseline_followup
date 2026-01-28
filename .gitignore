@@ -1,0 +1,21 @@
+# Data files
+*.xlsx
+*.xls
+*.csv
+*.rds
+*.sav
+*.sas7bdat
+
+# Output files
+*.docx
+*.pdf
+*.html
+
+# R specific
+.Rhistory
+.RData
+.Rproj.user
+
+# Mac / Windows junk
+.DS_Store
+Thumbs.db
